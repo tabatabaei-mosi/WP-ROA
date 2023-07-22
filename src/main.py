@@ -51,6 +51,7 @@ class ROA(Optimizer):
         """
         # Generate a radius of first population
         self.radius = np.full(self.pop_size, self.init_radius)
+        self.size = np.full(self.pop_size, self.joint_size)
 
 
     def initialization(self):
@@ -61,3 +62,51 @@ class ROA(Optimizer):
         # Required code of mealpy Optimizer
         if self.pop is None:
             self.pop = self.create_population(self.pop_size)
+
+
+    def evolve(self, epoch):
+        """
+        The main operations (equations) of algorithm. Inherit from Optimizer class
+
+        Args:
+            epoch (int): The current iteration
+        """
+        for i in range(self.pop_size):
+            for j in range(self.problem.n_dims):
+
+                # Change each variable Xi to Xi + R and Xi - R and evaluate the new position by the objective function
+                ## Change Xi to Xi + R
+                new_position_1 = np.copy(self.pop[i][self.ID_POS])
+                new_position_1[j] += self.radius[i]
+                new_cost_1 = self.problem.fit_func(new_position_1)
+
+                ## Change Xi to Xi - R
+                new_position_2 = np.copy(self.pop[i][self.ID_POS])
+                new_position_2[j] -= self.radius[i]
+                new_cost_2 = self.problem.fit_func(new_position_2)
+
+                # if the new cost is smaller than the previous cost, accept a new position for pop[i]
+                if new_cost_1 < self.pop[i][self.ID_TAR][self.ID_FIT]:
+                    self.pop[i][self.ID_POS] = new_position_1
+                    self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_1
+
+                if new_cost_2 < self.pop[i][self.ID_TAR][self.ID_FIT]:
+                    self.pop[i][self.ID_POS] = new_position_2
+                    self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_2
+
+            
+            while True:
+                # move the droplet at the same direction with the same velocity
+                new_position = self.pop[i][self.ID_POS] + np.random.uniform(-self.size[i], self.size[i], self.problem.n_dims)
+                new_position = np.clip(new_position, self.problem.lb, self.problem.ub)
+                new_cost = self.problem.fit_func(new_position)
+
+                if new_cost < self.pop[i][self.ID_TAR][self.ID_FIT]:
+                    self.pop[i][self.ID_POS] = new_position
+                    self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost
+                
+                else:
+                    break
+                
+                # reduce size of droplet depending on the soil adsorption properties
+                self.size[i] *= self.soil_adsorption
