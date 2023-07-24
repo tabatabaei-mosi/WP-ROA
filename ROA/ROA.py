@@ -80,21 +80,33 @@ class ROA(Optimizer):
                 ## Change Xi to Xi + R
                 new_position_1 = np.copy(self.pop[i][self.ID_POS])
                 new_position_1[j] += self.radius[i]
+                new_position_1 = np.clip(new_position_1, self.problem.lb, self.problem.ub)
                 new_cost_1 = self.problem.fit_func(new_position_1)
 
                 ## Change Xi to Xi - R
                 new_position_2 = np.copy(self.pop[i][self.ID_POS])
                 new_position_2[j] -= self.radius[i]
+                new_position_2 = np.clip(new_position_1, self.problem.lb, self.problem.ub)
                 new_cost_2 = self.problem.fit_func(new_position_2)
 
                 # if the new cost is smaller than the previous cost, accept a new position for pop[i]
-                if new_cost_1 < self.pop[i][self.ID_TAR][self.ID_FIT]:
-                    self.pop[i][self.ID_POS] = new_position_1
-                    self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_1
+                if self.problem.minmax == 'min':
+                    if new_cost_1 < self.pop[i][self.ID_TAR][self.ID_FIT]:
+                        self.pop[i][self.ID_POS] = new_position_1
+                        self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_1
 
-                if new_cost_2 < self.pop[i][self.ID_TAR][self.ID_FIT]:
-                    self.pop[i][self.ID_POS] = new_position_2
-                    self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_2
+                    if new_cost_2 < self.pop[i][self.ID_TAR][self.ID_FIT]:
+                        self.pop[i][self.ID_POS] = new_position_2
+                        self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_2
+                        
+                elif self.problem.minmax == 'max':
+                    if new_cost_1 > self.pop[i][self.ID_TAR][self.ID_FIT]:
+                        self.pop[i][self.ID_POS] = new_position_1
+                        self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_1
+
+                    if new_cost_2 > self.pop[i][self.ID_TAR][self.ID_FIT]:
+                        self.pop[i][self.ID_POS] = new_position_2
+                        self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost_2
 
             
             while True:
@@ -104,38 +116,47 @@ class ROA(Optimizer):
                 new_cost = self.problem.fit_func(new_position)
 
                 # compare new cost with current cost
-                if new_cost < self.pop[i][self.ID_TAR][self.ID_FIT]:
-                    self.pop[i][self.ID_POS] = new_position
-                    self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost
-                    
-                else:
-                    break
+                if self.problem.minmax == 'min':
+                    if new_cost < self.pop[i][self.ID_TAR][self.ID_FIT]:
+                        self.pop[i][self.ID_POS] = new_position
+                        self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost
+                        
+                    else:
+                        break
+                elif self.problem.minmax == 'max':
+                    if new_cost > self.pop[i][self.ID_TAR][self.ID_FIT]:
+                        self.pop[i][self.ID_POS] = new_position
+                        self.pop[i][self.ID_TAR][self.ID_FIT] = new_cost
+        
+                    else:
+                        break
                 
                 # reduce size of droplet depending on the soil adsorption properties
-                self.size[i] *= self.soil_adsorption
+                R = (self.soil_adsorption * self.radius[i]**self.problem.n_dims)**(1/self.problem.n_dims)
+                self.radius[i] = R
 
-            # join near droplets to each other and change the size of new droplets
-            for j in range(self.problem.n_dims):
-                if i == j:
-                    continue
-                r1 = self.radius[i]
-                r2 = self.radius[j]
-                dist = np.linalg.norm(self.pop[i][self.ID_POS] - self.pop[j][self.ID_POS])
+                # join near droplets to each other and change the size of new droplets
+                for j in range(self.problem.n_dims):
+                    if i == j:
+                        continue
+                    r1 = self.radius[i]
+                    r2 = self.radius[j]
+                    dist = np.linalg.norm(self.pop[i][self.ID_POS] - self.pop[j][self.ID_POS])
 
-                if dist <= (r1 + r2):
-                    R = (r1**self.problem.n_dims + r2**self.problem.n_dims)**(1/self.problem.n_dims)
+                    if dist <= (r1 + r2):
+                        R = (r1**self.problem.n_dims + r2**self.problem.n_dims)**(1/self.problem.n_dims)
 
-                    if r1 > r2:
-                        self.pop[j][self.ID_POS] = self.pop[i][self.ID_POS]
-                        self.pop[j][self.ID_TAR][self.ID_FIT] = self.pop[i][self.ID_TAR][self.ID_FIT]
-                        self.radius[j] = R
-                        self.size[j] = self.joint_size
+                        if r1 > r2:
+                            self.pop[j][self.ID_POS] = self.pop[i][self.ID_POS]
+                            self.pop[j][self.ID_TAR][self.ID_FIT] = self.pop[i][self.ID_TAR][self.ID_FIT]
+                            self.radius[j] = R
+                            self.size[j] = self.joint_size
 
-                    else:
-                        self.pop[i][self.ID_POS] = self.pop[j][self.ID_POS]
-                        self.pop[i][self.ID_TAR][self.ID_FIT] = self.pop[j][self.ID_TAR][self.ID_FIT]
-                        self.radius[i] = R
-                        self.size[i] = self.joint_size
+                        else:
+                            self.pop[i][self.ID_POS] = self.pop[j][self.ID_POS]
+                            self.pop[i][self.ID_TAR][self.ID_FIT] = self.pop[j][self.ID_TAR][self.ID_FIT]
+                            self.radius[i] = R
+                            self.size[i] = self.joint_size
 
         # define the cost array from self.pop for use in Omit weak droplets
         cost = []
@@ -167,23 +188,24 @@ class ROA(Optimizer):
 if __name__ == '__main__':
     # define objective function
     def fitness(solution):
-        return np.sum(solution**2)
+        return np.sum(np.abs((solution**2) - (2*solution) - 3) - solution)
 
     problem_dict = {
         "fit_func": fitness, # objective function 
-        "lb": [-5, ] * 5,  # Lower bounds for X and Y
-        "ub": [5, ] * 5,   # Upper bounds for X and Y
-        "n_dims": 5,  # number of variables (dimension)
+        "lb": [-1.1, ] * 3,  # Lower bounds for X and Y
+        "ub": [4, ] * 3,   # Upper bounds for X and Y
+        "n_dims": 3,  # number of variables (dimension)
+        'minmax': 'min'   # Minimization or Maximization
     }
 
     epoch = 50    # number of iterations
     pop_size = 100    # population size
     init_radius = 0.01       # initial radius of droplets
     joint_size = 1   # joint size
-    rain_speed = 0.03    # speed of rain
+    rain_speed = 0.01    # speed of rain
     soil_adsorption =  1    # rate of soil adsorption
     r_min = 0.001   # minimmum radius of droplets
 
     roa = ROA(epoch, pop_size, init_radius, joint_size, rain_speed, soil_adsorption, r_min)
-    best_pop, best_fitness = roa.solve(problem_dict)
-    print(f"Solution: {best_pop}, Fitness: {best_fitness}")
+    best_position, best_fitness = roa.solve(problem_dict)
+    print(f"Solution: {best_position}, Fitness: {best_fitness}")
