@@ -1,6 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import sys
+sys.path.append('..')
+
+from mealpy.swarm_based import SSA
+from mealpy.evolutionary_based import GA
+from model import ROA
+
 
 def Knapsack(model, epoch=100, pop_size=50):
     """
@@ -53,10 +60,9 @@ def Knapsack(model, epoch=100, pop_size=50):
         "fit_func": fitness_function,
         "lb": LB,
         "ub": UB,
-        'log_to': 'file',
-        'log_file': f'outputs/KnapsackProblem-{model.__name__}-epoch={epoch}-popsize={pop_size}.log',
         "minmax": "max",
     }
+    # TODO: log the epoch results to file
 
     ## Run the algorithm
     model = model(epoch=epoch, pop_size=pop_size)
@@ -82,10 +88,9 @@ def Eggcreate(model, epoch, pop_size):
         "fit_func": fitness_function, # objective function
         "lb": [-5, ] * 3,  # Lower bounds for X and Y
         "ub": [5, ] * 3,   # Upper bounds for X and Y
-        'log_to': 'file',
-        'log_file': f'outputs/EggcreateProblem-{model.__name__}-epoch={epoch}-popsize={pop_size}.log',
         'minmax': 'min'   # Minimization or Maximization
         }
+        # TODO: log the epoch results to file
 
 
     model = model(epoch=epoch, pop_size=pop_size)
@@ -119,11 +124,106 @@ def Shubert(model, epoch, pop_size):
         "fit_func": fitness_function, # objective function
         "lb": [-10, ] * 2,  # Lower bounds for X and Y
         "ub": [10, ] * 2,   # Upper bounds for X and Y
-        'log_to': 'file',
-        'log_file': f'outputs/ShubertProblem-{model.__name__}-epoch={epoch}-popsize={pop_size}.log',
         'minmax': 'min'   # Minimization or Maximization
         }
+        # TODO: log the epoch results to file
 
     model = model(epoch=epoch, pop_size=pop_size)
     best_position, best_fitness = model.solve(problem_dict)
     return model
+
+class TestEvaluation:
+    def __init__(self, models):
+        """
+            Initialize the evaluation class
+        
+            Args:
+                models (dictionary): a dictionary of runned models:
+                    - keys : names
+                    - values : runned models
+        """
+        self.models = models
+
+    def CompareModels(self, title):
+        """
+            Compare some models together and report fitness value plot, ouputs/
+        
+            Args:
+                title (str): name of problem
+        """
+        # get the models and their's name from dictionary
+        models = list(self.models.values())
+        names = list(self.models.keys())
+
+        # store fitness values and runtime of each model
+        fitness_values_list = []
+        runtimes = []
+        for i in range(len(models)):
+            fitness_values_list.append(models[i].history.list_global_best_fit)
+            runtimes.append(sum(models[i].history.list_epoch_time))
+            print(f'{names[i]} --> runtime = {round(runtimes[-1], 2)} seconds, Best fitness value = {models[i].solution[1][0]}')
+
+        epoch = len(models[0].history.list_epoch_time)
+        epoch_list = [i for i in range(epoch)]
+
+        # plot global best ftiness values for each model and save in src/test/outputs/
+        for i in range(len(models)):
+            plt.plot(epoch_list, fitness_values_list[i], label=f'{names[i]}')
+        plt.title(title)
+        plt.xlabel('Iteration')
+        plt.ylabel('Fitness value')
+        plt.legend()
+        plt.savefig(f'outputs/{title}-fitness_values.png')
+        plt.cla()
+
+
+if __name__ == '__main__':
+    # run some algorithms for Knapsack problem
+    roa = Knapsack(ROA.ROA, epoch=100, pop_size=50)
+    ssa = Knapsack(SSA.BaseSSA, epoch=100, pop_size=50)
+    ga = Knapsack(GA.BaseGA, epoch=100, pop_size=50)
+
+
+    # Compare runned models together 
+    models = {
+        'ROA': roa,
+        'GA': ga,
+        'SSA': ssa
+    }
+
+    print("Knapsack problem : ")
+    test = TestEvaluation(models=models)
+    test.CompareModels('Knapsack Problem')
+
+
+    # run some algorithms for Eggcreate benchmark
+    roa = Eggcreate(ROA.ROA, epoch=100, pop_size=50)
+    ga = Eggcreate(GA.BaseGA, epoch=100, pop_size=50)
+    ssa = Eggcreate(SSA.BaseSSA, epoch=100, pop_size=50)
+
+    # Compare runned models together 
+    models = {
+        'ROA': roa,
+        'GA': ga,
+        'SSA': ssa,
+    }
+
+    print("Eggcreate problem : ")
+    test = TestEvaluation(models=models)
+    test.CompareModels('Eggcreate Problem')
+
+    # run some algorithms for Shubert equation
+    roa = Shubert(ROA.ROA, epoch=100, pop_size=50)
+    ga = Shubert(GA.BaseGA, epoch=100, pop_size=50)
+    ssa = Shubert(SSA.BaseSSA, epoch=100, pop_size=50)
+
+    # Compare runned models together 
+    models = {
+        'ROA': roa,
+        'GA': ga,
+        'SSA': ssa,
+    }
+
+    print("Shubert problem : ")
+    test = TestEvaluation(models=models)
+    test.CompareModels('Shubert Problem')
