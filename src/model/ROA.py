@@ -13,7 +13,7 @@ class BaseROA(Optimizer):
     """
 
     def __init__(self, epoch=100, pop_size=50,
-                 init_radius=1, joint_size=1, rain_speed=0.01, soil_adsorption=5, r_min=0.00001,
+                 init_radius=0.0001, joint_size=1, rain_speed=0.01, soil_adsorption=5, r_min=0.00001,
                  **kwargs):
         """
         Initialize the Rain Optimization Algorithm (ROA) optimizer.
@@ -184,9 +184,8 @@ class BaseROA(Optimizer):
 
         # define the cost array from self.pop for use in Omit weak droplets
         cost = []
-        self.pop = np.array(self.pop)
         for i in range(self.pop_size):
-            cost.append(self.pop[:, self.ID_TAR][i][self.ID_FIT])
+            cost.append(self.pop[i][self.ID_TAR][self.ID_FIT])
         cost = np.array(cost)
 
         # Omit weak droplets depending on soil adsorption
