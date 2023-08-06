@@ -4,28 +4,34 @@ from mealpy.optimizer import Optimizer
 
 class BaseROA(Optimizer):
     """
-    The developed version: Base Rain Optimization Algorithm (ROA)
+    The modified version: Base Rain Optimization Algorithm (ROA).
+
+    The original model lacked some clarification and needed improvement.
+    The Base ROA was built to enhance the original ROA algorithm by addressing its limitations and 
+    incorporating improvements for better performance.
 
     References
     ~~~~~~~~~~
-    [1] Ali Reza Moazzeni, Ehsan Khamehchi 2020. Rain optimization algorithm (ROA): A new metaheuristic method 
-    for drilling optimization solutions, DOI: https://doi.org/10.1016/j.petrol.2020.107512
+    [1] Ali Reza Moazzeni, Ehsan Khamehchi, "Rain optimization algorithm (ROA): A new metaheuristic method 
+    for drilling optimization solutions," 2020, DOI: https://doi.org/10.1016/j.petrol.2020.107512.
     """
 
-    def __init__(self, epoch=100, pop_size=50,
+    def __init__(self, 
+                 epoch=100, pop_size=50,
                  init_radius=0.0001, joint_size=1, rain_speed=0.01, soil_adsorption=5, r_min=0.00001,
-                 **kwargs):
+                 **kwargs
+                ):
         """
         Initialize the Rain Optimization Algorithm (ROA) optimizer.
 
         Args:
-            epoch (int): Maximum number of iterations. 
-            pop_size (int): Population size.
-            init_radius (float): Initial radius of raindrops. default = 0.0001
-            joint_size (float): Joint size for merging raindrops.
-            rain_speed (float): Rain speed for moving raindrops. (fraction of self.pop_size), [0, 1]
-            soil_adsorption (float): Soil adsorption constant for raindrops absorption (percentage). [0, 100]
-            r_min (float): Minimum possible radius for droplet. [0, init_radius]
+            epoch (int): Maximum number of iterations. Default is 100.
+            pop_size (int): Population size. Default is 50.
+            init_radius (float): Initial radius of raindrops. Default is 0.0001.
+            joint_size (float): Joint size for merging raindrops. Default is 1.
+            rain_speed (float): Rain speed for moving raindrops, as a fraction of population size. Range [0, 1]. Default is 0.01.
+            soil_adsorption (float): Soil adsorption constant for raindrop absorption, in percentage. Range [0, 100]. Default is 5.
+            r_min (float): Minimum possible radius for a droplet, within the range [0, init_radius]. Default is 0.00001.
 
         Returns:
             None
@@ -34,14 +40,11 @@ class BaseROA(Optimizer):
 
         # Check the validation range for each hyper-parameters
         self.epoch = self.validator.check_int('epoch', epoch, [1, 100000])
-        self.pop_size = self.validator.check_int(
-            'pop_size', pop_size, [10, 10000])
-        self.init_radius = self.validator.check_float(
-            'init_radius', init_radius, [0, 1])
+        self.pop_size = self.validator.check_int('pop_size', pop_size, [10, 10000])
+        self.init_radius = self.validator.check_float('init_radius', init_radius, [0, 1])
         self.joint_size = self.validator.check_float('joint_size', joint_size)
         self.rain_speed = self.validator.check_float('rain_speed', rain_speed, [0, 1])
-        self.soil_adsorption = self.validator.check_float(
-            'soil_adsorption', soil_adsorption, [0, 100])
+        self.soil_adsorption = self.validator.check_float('soil_adsorption', soil_adsorption, [0, 100])
         self.r_min = self.validator.check_float('r_min', r_min, [0, self.init_radius])
 
         # Determine to sort the problem or not in each epoch
@@ -52,28 +55,36 @@ class BaseROA(Optimizer):
 
     def initialize_variables(self):
         """
-        initilize some supporter variables before initilize the population
+        Initialize support variables before initializing the population.
+        This method prepares necessary variables such as radius and size to be used in population initialization.
 
         """
-        # Generate a radius of first population
+        # Generate an initial radius for the first population
         self.radius = np.full(self.pop_size, self.init_radius)
         self.size = np.full(self.pop_size, self.joint_size)
 
     def initialization(self):
         """
-        initilize guess and Generate random population
+        Initialize the optimizer by generating an initial population of guesses.
+
+        This method initializes the optimizer by generating an initial population
+        (solutions) to start the optimization process.
+    
+        If you choose to override this method in a subclass, you can provide your own logic 
+        for initializing the population. Otherwise, the method will generate a random population
+        of size specified by the 'pop_size' attribute, following the mealpy framework's default behavior.
 
         """
-        # Required code of mealpy Optimizer
+        # Required by mealpy Optimizer
         if self.pop is None:
             self.pop = self.create_population(self.pop_size)
 
     def evolve(self, epoch):
         """
-        The main operations (equations) of algorithm. Inherit from Optimizer class
+        This method executes the main operations (equations) of the algorithm to optimize the solution.
 
         Args:
-            epoch (int): The current iteration
+            epoch (int): The current iteration.
         """
         for i in range(self.pop_size):
             for j in range(self.problem.n_dims):
@@ -82,14 +93,12 @@ class BaseROA(Optimizer):
                 # Change Xi to Xi + R
                 new_position_1 = np.copy(self.pop[i][self.ID_POS])
                 new_position_1[j] += self.radius[i]
-                new_position_1 = np.clip(
-                    new_position_1, self.problem.lb, self.problem.ub)
+                new_position_1 = np.clip(new_position_1, self.problem.lb, self.problem.ub)
 
                 # Change Xi to Xi - R
                 new_position_2 = np.copy(self.pop[i][self.ID_POS])
                 new_position_2[j] -= self.radius[i]
-                new_position_2 = np.clip(
-                    new_position_2, self.problem.lb, self.problem.ub)
+                new_position_2 = np.clip(new_position_2, self.problem.lb, self.problem.ub)
 
                 new_cost_1 = self.problem.fit_func(new_position_1)
                 new_cost_2 = self.problem.fit_func(new_position_2)
@@ -210,6 +219,8 @@ class BaseROA(Optimizer):
         self.size = np.hstack(
             (self.size, np.full(num_new_droplets, self.joint_size)))
         self.pop_size += num_new_droplets
+
+
 
 class OriginalROA(Optimizer):
     """
