@@ -1,5 +1,5 @@
 from utils import write_solution, npv_calculator, run_simulator
-from model import ROA
+from optimizer import ROA
 
 def obj_func(solution):
     """
@@ -11,9 +11,11 @@ def obj_func(solution):
     Retrun:
         npv (float): npv value
     """
+    print(type(solution))
     # write solution to INCLUDE files
     keywords = ['WELSPECS', 'COMPDAT']
-    write_solution(solution, keywords, num_inj=0, num_prod=6, n_params=4, is_green=True, is_include=True)
+    write_solution(solution, keywords, num_inj=num_inj, num_prod=num_prod, 
+                   n_params=n_params, is_green=True, is_include=True)
     # run simulator
     run_simulator()
 
@@ -22,9 +24,10 @@ def obj_func(solution):
     return npv
 
 if __name__ == '__main__':
-    # number of injection, production and total wells
+    # number of injection, production and number of optimization paramaeters
     num_inj = 0
     num_prod = 6
+    n_params = 4
     num_wells = num_inj + num_prod
 
     # get npv constants from external file
@@ -36,7 +39,7 @@ if __name__ == '__main__':
             value = float(value)
             npv_constants[key] = value
 
-    # PUNQS3-real DATA
+    # PUNQS3 DATA
     problem_dict = {
         'fit_func': obj_func, 
         "lb": [1, 1, 1, 1] * num_wells, # Min. [loc_i, loc_j, perf_k1, perf_k2]

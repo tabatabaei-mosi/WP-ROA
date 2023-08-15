@@ -12,7 +12,7 @@ sys.path.append(str(parent_dir))
 from mealpy.evolutionary_based import GA
 from mealpy.swarm_based import SSA
 
-from model import ROA
+from optimizer import ROA
 
 
 def knapsack(model, epoch=100, pop_size=50):
