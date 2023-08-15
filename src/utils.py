@@ -1,3 +1,6 @@
+import subprocess
+import pandas as pd
+
 def split_solution(solution, num_inj=0, n_params=4):
     """
     split the solution to injection wells and production wells
@@ -62,7 +65,8 @@ def decode_solution(solution, num_inj=0, num_prod=1, n_params=4):
         perfs_prod.append(param_prod[start+slice_loc:start+slice_perf])
         start += n_params
 
-    return locs_inj, perfs_inj, locs_prod, 
+    return locs_inj, perfs_inj, locs_prod, perfs_prod
+
 
 def write_solution(solution, keywords, num_inj=0, num_prod=1, n_params=4, is_green=True, is_include=True):
     """
@@ -181,3 +185,90 @@ def write_solution(solution, keywords, num_inj=0, num_prod=1, n_params=4, is_gre
                 with open(file_path, 'w+') as compdat:
                     write_compdat(compdat, perfs_inj, perfs_prod)
             # TODO: write else and change COMPDAT in PUNQS3-real DATA
+
+def npv_calculator(npv_constants):
+    """
+    calculate NPV by read RSM file
+
+    Args:
+        npv_constants (dictionary): a constants to use in npv formula
+
+    Return:
+        npv (float): npv function value
+    """
+
+    # Enter the RSM file path
+    file_name = 'PUNQS3_SIMULATEDREAL.RSM'
+    file_path = f'src/Eclipse/PUNQS3-real/{file_name}'
+
+    # read the RSM file 
+    df = pd.read_fwf(file_path, header=1)
+
+    # columns that can have specific unit
+    columns = ['FOPT', 'FGPT', 'FWPT']
+
+    start_idx = 1
+    # get unit of each columns
+    units = []
+    for col in columns:
+        if str(df[col][1]) != 'nan' and str(df[col][1]) != '0':
+            start_idx = 2
+            units.append(10**int(df[col][1][5]))
+        else:
+            units.append(1)
+
+    # convert columns values to numeric (float)
+    df['TIME'] = pd.to_numeric(df['TIME'][start_idx:])
+    df['FOPT'] = pd.to_numeric(df['FOPT'][start_idx:])
+    df['FGPT'] = pd.to_numeric(df['FGPT'][start_idx:])
+    df['FWPT'] = pd.to_numeric(df['FWPT'][start_idx:])
+
+    # define converter unit, SM3 to STB
+    SM3_to_STB = 6.289810770432105
+    
+    # define some variables to calculate annual npv
+    FOPT_year = 0
+    FGPT_year = 0
+    FWPT_year = 0
+    # define counter to use in npv formula
+    counter = 1
+    npv = 0
+    # loop in dataframe to calculate npv by each row
+    for i in range(start_idx, len(df['TIME'])):
+        # chech if reach the end of the year
+        if df['TIME'][i] < counter*365:
+            FOPT_year += df['FOPT'][i]*units[0]
+            FGPT_year += df['FGPT'][i]*units[1]
+            FWPT_year += df['FWPT'][i]*units[2]
+            # continue if the idx not final_idx
+            if i != len(df['TIME']) - 1:
+                continue
+
+        # add each year npv value to npv
+        npv += ((FOPT_year * npv_constants['ro'] * SM3_to_STB) + (FGPT_year * npv_constants['rgp']) - 
+               (FWPT_year * npv_constants['rwp'] * SM3_to_STB) - npv_constants['opex'])/((1 + npv_constants['d'])**(counter))
+        # add 1 to counter to go to next year
+        counter += 1
+        # reset the annual variables to 0
+        FOPT_year = 0
+        FGPT_year = 0
+        FWPT_year = 0
+
+    # return npv after subtracing capex from it
+    return (npv - npv_constants['capex'])
+
+def run_simulator():
+    """
+    A function for run the Eclipse simulator
+
+    Args:
+        None
+    
+    Return:
+        None
+    """
+    # directory that including .DATA 
+    working_dir = 'E:/Research/ROA-WP/PUN/src/Eclipse/PUNQS3-real/'
+    # open a file to logging the simulator report
+    with open('src/Eclipse/PUNQS3-real/log_dir/bat_results.txt', 'a') as batch_outputs:
+        subprocess.call([r"E:/Research/ROA-WP/PUN/src/Eclipse/PUNQS3-real/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)
