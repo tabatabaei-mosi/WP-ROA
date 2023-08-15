@@ -1,0 +1,6 @@
+ro=100
+rgp=2.53
+rwp=5
+d=0.1
+opex=5E6
+capex=7E7
