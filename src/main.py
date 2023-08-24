@@ -1,4 +1,5 @@
-from utils import write_solution, npv_calculator, run_simulator
+from utils import decode_solution, write_solution, npv_calculator, run_simulator
+from npv_constants import constants
 from optimizer import ROA
 
 def obj_func(solution):
@@ -11,41 +12,61 @@ def obj_func(solution):
     Retrun:
         Fitness value (float): NPV value
     """
+
+    # decode solution
+    locs_inj, perfs_inj, locs_prod, perfs_prod = decode_solution(
+                                                        solution=solution,
+                                                        num_inj=num_inj,
+                                                        num_prod=num_prod,
+                                                        n_params=n_params
+                                                    )
+    
     # write solution to INCLUDE files
-    keywords = ['WELSPECS', 'COMPDAT']
-    write_solution(solution, keywords, num_inj=num_inj, num_prod=num_prod, 
-                   n_params=n_params, is_green=True, is_include=True)
+    write_solution(
+            locs_inj=locs_inj,
+            perfs_inj=perfs_inj,
+            locs_prod=locs_prod,
+            perfs_prod=perfs_prod,
+            keywords=keywords, 
+            is_green=True, is_include=True
+        )
+    
     # run simulator
     run_simulator()
 
     # calculate npv by reading .RSM
-    npv = npv_calculator(npv_constants=npv_constants)
+    npv = npv_calculator(
+            model_name=model_name, 
+            npv_constants=npv_constants
+        )
+    
     return npv
 
-if __name__ == '__main__':
-    # number of injection, production and number of optimization paramaeters
-    num_inj = 0
-    num_prod = 6
-    n_params = 4
-    num_wells = num_inj + num_prod
+# number of injections, productions and number of optimization paramaeters
+num_inj = 0
+num_prod = 6
+n_params = 4
+num_wells = num_inj + num_prod
 
-    # get npv constants from external file
-    npv_constants = {}
-    with open('src/npv_constants.txt', 'r') as constants:
-        lines = constants.readlines()
-        for line in lines:
-            key, value = line.split('=')
-            value = float(value)
-            npv_constants[key] = value
+npv_constants = constants
 
-    # PUNQS3 DATA
-    problem_dict = {
-        'fit_func': obj_func, 
-        "lb": [1, 1, 1, 1] * num_wells,         # lower boundary to [loc_i, loc_j, perf_k1, perf_k2]
-        'ub': [19, 28, 5, 5] * num_wells,       # upper boundary to [loc_i, loc_j, perf_k1, perf_k2]
-        'minmax': 'max', 
-    }
+# Enter the model name (.DATA name)
+model_name = 'PUNQS3'
 
-    roa = ROA.BaseROA(epoch=10, pop_size=20)
-    best_position, best_fitness = roa.solve(problem_dict)
-    print(f"Solution: {best_position}, Fitness: {best_fitness}")
+# specify working keywords
+keywords = ['WELSPECS', 'COMPDAT']
+
+# PUNQS3 DATA
+problem_dict = {
+    'fit_func': obj_func, 
+    "lb": [1, 1, 1, 1] * num_wells,         # lower boundary to [loc_i, loc_j, perf_k1, perf_k2]
+    'ub': [19, 28, 5, 5] * num_wells,       # upper boundary to [loc_i, loc_j, perf_k1, perf_k2]
+    'minmax': 'max', 
+}
+
+epoch = 10
+pop_size = 20
+
+roa = ROA.BaseROA(epoch=epoch, pop_size=pop_size)
+best_position, best_fitness = roa.solve(problem_dict)
+print(f"Solution: {best_position}, Fitness: {best_fitness}")
