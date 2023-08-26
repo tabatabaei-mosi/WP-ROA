@@ -113,29 +113,9 @@ def write_solution(
         # Write the WELSPECS keyword
         file.write(f'{keyword}\n')
 
-        # PUNQS3 injection well properties
+        # PUNQS3 injection and production well properties
         # keys : well_names, values: RDBHP values
-        dic_inj = {
-
-        }
-
-        # Index for well names and RDBHP
-        idx_counter = 0
-
-        # Write injection wells
-        for well_name, RDBHP in dic_inj.items():
-            i = locs_inj[idx_counter][0]
-            j = locs_inj[idx_counter][1]
-            # Injection WELSPECS template
-            template = [f'{well_name}', '\'G1\'', str(int(i)), str(int(j)), str(RDBHP),
-                         '\'WATER\'', '1*', '\'STD\'', '3*', '\'SEG\'', '  /']
-            line = '  '.join(template)
-            idx_counter += 1
-            file.write(f'{line}\n')
-
-        # PUNQS3 production well properties
-        # keys : well_names, values: RDBHP values
-        dic_prod = {
+        wellspec_dic= {
             'PRO-1': 2362.2,
             'PRO-4': 2373.0,
             'PRO-5': 2381.7,
@@ -144,11 +124,26 @@ def write_solution(
             'PRO-15': 2381.0,
         }
 
+        # Index for well names and RDBHP
+        idx_counter = 0
+
+        # Write injection wells
+        for well_name, RDBHP in wellspec_dic.items():
+            if "INJ" in 
+            i = locs_inj[idx_counter][0]
+            j = locs_inj[idx_counter][1]
+            # Injection WELSPECS template
+            template = [f'{well_name}', '\'G1\'', str(int(i)), str(int(j)), str(RDBHP),
+                         '\'WATER\'', '1*', '\'STD\'', '3*', '\'SEG\'', '  /']
+            line = '  '.join(template)
+            idx_counter += 1
+            file.write(f'{line}\n')
+     
         # Reset idx_counter to zero
         idx_counter = 0
 
         # Write production wells
-        for well_name, RDBHP in dic_prod.items():
+        for well_name, RDBHP in wellspec_dic.items():
             i = locs_prod[idx_counter][0]
             j = locs_prod[idx_counter][1]
             # Production template
