@@ -2,8 +2,6 @@ import subprocess
 import pandas as pd
 from pathlib import Path
 
-# Path of root directory (absolute to src)
-# ? Could you explain why it was necessory to use two sequential parent? while one parent give us a path to src dir. (.../src >> preferable)
 abs_to_src = Path(__file__).resolve().parent
 
 def split_solution(solution, num_inj=0, n_params=4):
