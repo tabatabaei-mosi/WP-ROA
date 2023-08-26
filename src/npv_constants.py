@@ -1,7 +1,20 @@
 """
-This file has been created for initializing the constants dictionary of the NPV formula.
+    This file has been created for initializing the constants dictionary of the NPV formula.
+    
+    The NPV formula is given by:
 
-    constants (dict):
+    \[
+    NPV = \\sum_{t=1}^{T} \\frac{ (Q_o * r_o) - (Q_w * r_wp) + (Q_g * r_gp) - OPEX }{(1 + d)^t} - CAPEX
+    \]
+    
+    where:
+    - t: time (annular)
+    - $Q_o$: Total Oil Field Flow Rate (production)
+    - $Q_w$: Totla Water Field Flow Rate (production)
+    - $Q_g$: TOtal Gas Field Flow Rate (production)
+
+
+    constants to define (dict):
         ro: oil price ($/bbl)
         rgp: gas price ($/bbl)
         rwp: water production cost ($/bbl)
