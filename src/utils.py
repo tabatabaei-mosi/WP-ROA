@@ -129,11 +129,13 @@ def write_solution(
 
         # Write injection wells
         for well_name, RDBHP in wellspec_dic.items():
-            if "INJ" in 
+            if "INJ" not in well_name:
+                continue
+
             i = locs_inj[idx_counter][0]
             j = locs_inj[idx_counter][1]
             # Injection WELSPECS template
-            template = [f'{well_name}', '\'G1\'', str(int(i)), str(int(j)), str(RDBHP),
+            template = [f'\'{well_name}\'', '\'G1\'', str(int(i)), str(int(j)), str(RDBHP),
                          '\'WATER\'', '1*', '\'STD\'', '3*', '\'SEG\'', '  /']
             line = '  '.join(template)
             idx_counter += 1
@@ -144,10 +146,13 @@ def write_solution(
 
         # Write production wells
         for well_name, RDBHP in wellspec_dic.items():
+            if "PRO" not in well_name:
+                continue
+
             i = locs_prod[idx_counter][0]
             j = locs_prod[idx_counter][1]
             # Production template
-            template = [f'{well_name}', '\'G1\'', str(int(i)), str(int(j)), str(RDBHP),
+            template = [f'\'{well_name}\'', '\'G1\'', str(int(i)), str(int(j)), str(RDBHP),
                          '\'OIL\'', '1*', '\'STD\'', '3*', '\'SEG\'', '  /']
             line = '  '.join(template)
             idx_counter += 1
