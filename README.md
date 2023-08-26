@@ -32,4 +32,5 @@ The objective of this project mainly is to utilize ROA meta-heuristic algorithms
 
 - [ ] Improve the Base ROA class
 - [ ] Re-implement the TestEvaluation logging section (to include training of each model separately)
+- [ ] Parallelization of Eclipse (Simulation process) and Python
 - [ ] Update write_solution fnction and complete TODO parts of it
