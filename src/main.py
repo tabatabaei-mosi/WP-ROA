@@ -1,6 +1,8 @@
 from utils import decode_solution, write_solution, npv_calculator, run_simulator
 from npv_constants import constants
 from optimizer import ROA
+from loguru import logger
+
 
 def obj_func(solution):
     """
@@ -42,19 +44,24 @@ def obj_func(solution):
     
     return npv
 
+
+
 # number of injections, productions and number of optimization paramaeters
 num_inj = 0
 num_prod = 6
 n_params = 4
-num_wells = num_inj + num_prod
+epoch = 10
+pop_size = 20
 
-npv_constants = constants
+# specify working keywords
+keywords = ['WELSPECS', 'COMPDAT']
 
 # Enter the model name (.DATA name)
 model_name = 'PUNQS3'
 
-# specify working keywords
-keywords = ['WELSPECS', 'COMPDAT']
+num_wells = num_inj + num_prod
+npv_constants = constants
+
 
 # PUNQS3 DATA
 problem_dict = {
@@ -64,9 +71,8 @@ problem_dict = {
     'minmax': 'max', 
 }
 
-epoch = 10
-pop_size = 20
 
 roa = ROA.BaseROA(epoch=epoch, pop_size=pop_size)
 best_position, best_fitness = roa.solve(problem_dict)
-print(f"Solution: {best_position}, Fitness: {best_fitness}")
+
+logger.info(f"Solution: {best_position}, Fitness: {best_fitness}")
