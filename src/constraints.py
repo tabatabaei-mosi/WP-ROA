@@ -124,3 +124,141 @@ def read_grdecl(
                 break
 
         return actcell
+    
+
+def physical_penalty(
+        model_name,
+        locs_inj, perfs_inj,
+        locs_prod, perfs_prod, 
+        gridsize=[19, 28, 5], 
+        targets=['null_block', 'min_space', 'border'],
+        well_space=2,
+        null_space=2
+    ):
+    """
+    Calculate physical penalties based on specified criteria for a reservoir simulation model.
+
+    Args:
+        model_name (str): Name of the reservoir simulation model
+        locs_inj (np.array, list): Array of injection well locations.
+        perfs_inj (np.array, list): Array of injection well perforations .
+        locs_prod (np.array, list): Array of production well locations.
+        perfs_prod (np.array, list): Array of production well perforations.
+        gridsize (list or tuple): Grid dimensions [x, y, z]. Default (PUNQS3): [19, 28, 5]
+        targets (list): List of target constraints to check. Default: ['null_block', 'min_space', 'border']
+        well_space (int): Minimum well spacing constraint. Default: 2
+        null_space (int): Minimum distance to nulk blocks, Default: 2
+
+    Returns:
+        tuple: A tuple containing a boolean indicating constraint violation (True if violated), and
+               the cumulative number of physical penalty faults.
+    """
+    # Initialize counters for different types of faults
+    null_fault = 0
+    min_fault = 0
+    border_fault = 0
+
+    # Combine injection and production well locations and perforations
+    if locs_inj != []:
+        locs = np.concatenate([locs_inj, locs_prod])
+        perfs = np.concatenate([perfs_inj, perfs_prod])
+        
+    else:
+        locs = locs_prod
+        perfs = perfs_prod
+
+    # Check for border constraint
+    if 'border' in targets:
+        for i in range(len(locs)):
+            # Check if the well is at the border of the grid
+            if (locs[i][0] in [1, gridsize[0]]) or (locs[i][1] in [1, gridsize[1]]):
+                border_fault += 1
+
+    # Check for minimum well spacing constraint
+    if 'min_space' in targets:
+        # Loop through all wells
+        for i in range(len(locs)):
+            well1_start = [locs[i][0], locs[i][1], perfs[i][0]]
+            well1_end = [locs[i][0], locs[i][1], perfs[i][1]]
+            # Loop through remaining wells
+            for j in range(i+1, len(locs)):
+                well2_start = [locs[j][0], locs[j][1], perfs[j][0]]   
+                well2_end = [locs[j][0], locs[j][1], perfs[j][1]]   
+
+                # Calculate distances between start points and end points of 2 wells
+                dist_start = np.sqrt((well1_start[0] - well2_start[0])**2 + 
+                                     (well1_start[1] - well2_start[1])**2 +
+                                     (well1_start[2] - well2_start[2])**2)
+                
+                dist_end = np.sqrt((well1_end[0] - well2_end[0])**2 + 
+                                   (well1_end[1] - well2_end[1])**2 +
+                                   (well1_end[2] - well2_end[2])**2)
+                
+                # Check if minimum spacing constraint is violated
+                if dist_start <= well_space or dist_end <= well_space:
+                    min_fault += 1
+
+    # Check for null blocks constraint
+    if 'null_block' in targets:
+        # Read grid status and pass to actcell array using read_grdecl
+        actcell = read_grdecl(
+                    model_name=model_name, 
+                    gridsize=gridsize, 
+                    target='ACTCELL'
+                )
+        # Loop through wells to check null block constraint
+        for i in range(len(locs)):
+            loc_i = locs[i][0] - 1
+            loc_j = locs[i][1] - 1
+            perf_start = perfs[i][0] - 1
+            perf_end = perfs[i][1] - 1
+
+            # Check if any perforation in null block, Return True -> NPV = 0
+            if any(actcell[loc_i, loc_j, perf_start: perf_end + 1] == 0):
+                return True, 0
+            
+            # Define start and end point of well
+            well_start = [loc_i, loc_j, perf_start]
+            well_end = [loc_i, loc_j, perf_end]
+
+            flag_null = False
+            # Checking a specific radius of null blocks based on null_space.
+            for x in range(loc_i - null_space, loc_i + null_space + 1):
+                # Checking the legal range of x
+                if x < 0 or x >= gridsize[0]:
+                    continue
+                for y in range(loc_j - null_space, loc_j + null_space + 1):
+                    # Checking the legal range of y
+                    if y < 0 or y >= gridsize[1]:
+                        continue
+                    for z in range(perf_start - null_space, perf_end + null_space + 1):
+                        # Checking the legal range of x
+                        if z < 0 or z >= gridsize[2]:
+                            continue
+                        status = actcell[x, y, z]
+                    
+                        if status == 0:
+                            # Calculate distances to determine null block violations
+                            dist_start = np.sqrt((well_start[0] - x)**2 + 
+                                                 (well_start[1] - y)**2 + 
+                                                 (well_start[2] - z)**2)
+
+                            dist_end = np.sqrt((well_end[0] - x)**2 + 
+                                               (well_end[1] - y)**2 + 
+                                               (well_end[2] - z)**2)
+                            
+                            # Check if null space constraint is violated
+                            if dist_start <= null_space or dist_end <= null_space:
+                                flag_null = True
+                                null_fault += 1
+                                break
+                    if flag_null:
+                        break
+                if flag_null:
+                    break
+        
+    # Calculate total faults by summing up the individual faults
+    faults = null_fault + min_fault + border_fault
+
+    # Return a tuple with violation status (False if no violation) and total faults
+    return False, faults
