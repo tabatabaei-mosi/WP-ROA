@@ -1,5 +1,6 @@
 import subprocess
 import pandas as pd
+import numpy as np
 from pathlib import Path
 
 abs_to_src = Path(__file__).resolve().parent
@@ -74,6 +75,9 @@ def decode_solution(
         locs_prod.append(param_prod[start: start + slice_loc])
         perfs_prod.append(param_prod[start + slice_loc: start + slice_perf])
         start += n_params
+
+    locs_inj, perfs_inj = np.array(locs_inj, dtype=int), np.array(perfs_inj, dtype=int)
+    locs_prod, perfs_prod = np.array(locs_prod, dtype=int), np.array(perfs_prod, dtype=int)
 
     return locs_inj, perfs_inj, locs_prod, perfs_prod
 
