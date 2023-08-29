@@ -11,6 +11,7 @@ def logical_constraint(
 ):
     """
     Check the logical constraints of well locations and perforations.
+    If any logical constrain is violated, the NPV is equal to Zero as punishment for algorithm.
     
     This function verifies two logical constraints:
     1. Duplicate Well Locations: Ensures that the same well location is not repeated.
@@ -25,19 +26,21 @@ def logical_constraint(
     Returns:
         bool: True if any logical constraint is violated, False if no problem.
         """
-    # Merge location and perforation arrays
-    if locs_inj != []:
+    # If there're injection wells, merge location and perforation arrays between production and injection.
+    if locs_inj:
         locs = np.concatenate([locs_inj, locs_prod])
         perfs = np.concatenate([perfs_inj, perfs_prod])
         
     else:
         locs = locs_prod
         perfs = perfs_prod
-
-    # Loop through wells to caculate count of each well
+    
+    # Loop through wells to count the number of repeatation of a location
+    # ... create a list from locs, to use buitl-in method of list, count().
     locs = [list(item) for item in locs]
     for loc in locs:
         loc_count = locs.count(list(loc))
+        # a SINGLE repeatation, will terminated in NPV=0 (True, violated) 
         if loc_count > 1:
             return True
 
@@ -57,18 +60,18 @@ def read_grdecl(
         target='ACTCELL'
     ):
     """
-    Read .GRDECL file and extract ActiveCells information.
+    Read .GRDECL file and extract information about the target keyword (Default: ACTCELL)
 
     Args:
         model_name (str): Name of the model (without extension). Default: 'PUNQS3'
         gridsize (list or tuple): Grid demnsions, [x, y, z]. Default (PUNQS3): [19, 28, 5]
-        target (str): Keyword to search for in the file. Default (PUNQS3): 'ACTCELL'
+        target (str): Keyword to search for in the GRDECL file. Default (PUNQS3): 'ACTCELL'
 
     Retruns:
-        actcell (np.array): Array containinh activity status of each block.
-                            0 represents Not Active, 1 represents Active
+        target_value (np.array): An array contains values of target keywords. In default, activity status of each block will be generated.
+                            0 represents Not Active, 1 represents Active.
     """
-    # Constant file name and file path for the .GRDECL file
+    # Constant variables for file name and file path to the .GRDECL file
     file_name = f'{model_name}.GRDECL'
     file_path = f'{abs_to_src}/model/{file_name}'
 
@@ -136,7 +139,9 @@ def physical_penalty(
         null_space=2
     ):
     """
-    Calculate physical penalties based on specified criteria for a reservoir simulation model.
+    Calculate physical penalties based on specified criteria for a reservoir simulation model. This function will check
+    some target constrains, expected: ['null_block', 'min_space', 'border'].
+    minimum space of wells and from null blocks to not be less than a threshold and additionally, to not well be drilled in boarders or in a null block. 
 
     Args:
         model_name (str): Name of the reservoir simulation model
@@ -153,13 +158,13 @@ def physical_penalty(
         tuple: A tuple containing a boolean indicating constraint violation (True if violated), and
                the cumulative number of physical penalty faults.
     """
-    # Initialize counters for different types of faults
+    # Initialize counters for different types of faults (counter of times a physical constrain will violate)
     null_fault = 0
     min_fault = 0
     border_fault = 0
 
     # Combine injection and production well locations and perforations
-    if locs_inj != []:
+    if locs_inj:
         locs = np.concatenate([locs_inj, locs_prod])
         perfs = np.concatenate([perfs_inj, perfs_prod])
         
@@ -180,6 +185,7 @@ def physical_penalty(
         for i in range(len(locs)):
             well1_start = [locs[i][0], locs[i][1], perfs[i][0]]
             well1_end = [locs[i][0], locs[i][1], perfs[i][1]]
+            
             # Loop through remaining wells
             for j in range(i+1, len(locs)):
                 well2_start = [locs[j][0], locs[j][1], perfs[j][0]]   
@@ -206,6 +212,7 @@ def physical_penalty(
                     gridsize=gridsize, 
                     target='ACTCELL'
                 )
+        
         # Loop through wells to check null block constraint
         for i in range(len(locs)):
             loc_i = locs[i][0] - 1
@@ -227,10 +234,12 @@ def physical_penalty(
                 # Checking the legal range of x
                 if x < 0 or x >= gridsize[0]:
                     continue
+                    
                 for y in range(loc_j - null_space, loc_j + null_space + 1):
                     # Checking the legal range of y
                     if y < 0 or y >= gridsize[1]:
                         continue
+                        
                     for z in range(perf_start - null_space, perf_end + null_space + 1):
                         # Checking the legal range of x
                         if z < 0 or z >= gridsize[2]:
@@ -257,7 +266,7 @@ def physical_penalty(
                 if flag_null:
                     break
         
-    # Calculate total faults by summing up the individual faults
+    # Calculate total faults by summing up the individual errors
     faults = null_fault + min_fault + border_fault
 
     # Return a tuple with violation status (False if no violation) and total faults
