@@ -63,7 +63,7 @@ def obj_func(solution):
         # run simulator
         run_simulator()
 
-        # calculate npv by reading .RSM
+        # calculate NPV by reading .RSM file (resuled from simulation)
         NPV = npv_calculator(
                 model_name=model_name, 
                 npv_constants=npv_constants
@@ -71,17 +71,19 @@ def obj_func(solution):
         
         # Punish the algorithm based on the number of faults and penalty_coeff
         if num_faults >= 1:
-            punish_coeff = penalty_coeff * num_faults
+            punishment_frac = penalty_coeff * num_faults
 
-            # if punishment coeff. larger than 1 -> NPV = 0
-            if punish_coeff >= 1:
+            # if punishment fraction is larger than 1 -> NPV = 0
+            if punishment_frac >= 1:
                 return 0
         
             # Reduced NPV by penalty coeff.
             else:       
-                NPV -= (penalty_coeff * NPV)
+                NPV -= (punishment_frac * NPV)
         
         return NPV
+
+
 
 # number of injections, productions and number of optimization paramaeters
 num_inj = 0
