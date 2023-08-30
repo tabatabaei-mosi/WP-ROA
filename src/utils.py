@@ -5,6 +5,26 @@ from pathlib import Path
 
 abs_to_src = Path(__file__).resolve().parent
 
+def path_check(path):
+    """
+    Check if a directory exists at the given path and create it if it doesn't exist.
+
+    Args:
+        path (str or Path): The path to the directory that needs to be checked and created if absent.
+    
+    Returns:
+        None
+    """
+    # Convert the input path to a Path object
+    path_object = Path(path)
+
+    # Check if the directory already exists
+    if not path_object.exists():
+
+        # Create the directory since it doesn't exist
+        path_object.mkdir(parents=True, exist_ok=True)
+
+
 def split_solution(solution, num_inj=0, n_params=4):
     """
     split the solution to two different part: The optimized parameters related to (1) injection and (2) production wells.
@@ -333,7 +353,10 @@ def run_simulator():
         None
     """
     # Path to directory where include .bat and .DATA files
+    # ... Create the directory since if doesn't exist
     working_dir = f'{abs_to_src}/model'
+    path_check(working_dir)
+
     # open a file to log the simulator report
     with open(f'{abs_to_src}/model/bat_results.txt', 'a') as batch_outputs:
         subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)
