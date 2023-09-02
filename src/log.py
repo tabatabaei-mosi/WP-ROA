@@ -1,5 +1,8 @@
+import subprocess
 from pathlib import Path
-from utils import path_check
+
+from utils import path_check, write_solution, decode_solution
+from constraints import physical_penalty
 
 # Path of root directory (absolute to src)
 abs_to_src = Path(__file__).resolve().parent
@@ -25,7 +28,7 @@ def bat_summary():
 
     # Loop through keywords
     for keyword in keywords:
-        # Initia
+        # Initialize vaiables for count run and keyword_value > 0
         run_count = 0
         keyword_count = 0
 
@@ -65,3 +68,130 @@ def bat_summary():
             # Write the total number of simulation calls in last line of file
             if keyword == 'Problems':
                 bat_sum.write(f'Total number of simulation calls : {run_count}\n')
+
+
+def write_best(model_name,
+               optimizer,
+               best_solution, 
+               best_fitness,
+               num_inj=0, 
+               num_prod=6, 
+               n_params=4,
+               gridsize=(19, 28, 5),
+               keywords=['WELSPECS', 'COMPDAT']
+    ):
+    """
+
+    Args:
+        model_name (str): Name of the reservoir simulation model
+        optimizer (mealpy.Optimizer): An instance of the mealpy optimizer class.
+        best_solution (np.array, list): The best solution obtained from the optimization process.
+        best_fitness (float): The fitness value of the best solution.
+        num_inj (int): The number of injection wells. Default: 0.
+        num_prod (int): The number of production wells. Default: 6.
+        n_params (int): The number of optimization parameters. Default is 4.
+        gridsize (list, tuple): Grid size information as [X, Y, Z]. Default: [19, 28, 5].
+        keywords (list, tuple): Keywords for solution writing. Default: ['WELSPECS', 'COMPDAT'].
+
+    Returns:
+        None
+    """
+    
+    # Decode the best solution to obtain well locations and perforations
+    locs_inj, perfs_inj, locs_prod, perfs_prod = decode_solution(
+                                                    solution=best_solution,
+                                                    num_inj=num_inj,
+                                                    num_prod=num_prod,
+                                                    n_params=n_params
+                                                )
+    
+    
+    # Define the directory for log files
+    log_dir = f'{abs_to_src}/log_dir'
+
+    # Create the log directory if it doesn't exist
+    path_check(log_dir)
+
+    # Open a text file in write mode ('w+')
+    with open(f'{log_dir}/best_result.txt', 'w+') as best_file:
+
+        # # Write a header indicating the purpose of this file and seperator
+        best_file.write('Final solution (best solution) of WP optimization process\n')
+        best_file.write(100*'-'+'\n')
+
+        # Write the best fitness value in terms of NPV (Net Present Value).
+        best_file.write(f'Best Objective value -->  NPV = {best_fitness/10**9} Bilion $\n\n')
+
+        # Get Name and Hyperparameters of optimizer
+        optimizer_name = optimizer.get_name()
+        params = optimizer.get_parameters()
+        params_line = ''
+
+        # Write the name of optimizer and its hyperparameters 
+        best_file.write(f'The {optimizer_name} parameters : \n')
+        for name, value in params.items():
+            params_line += f'{name} = {value}, '
+
+        # Write hyperparameters line on another seperator
+        best_file.write(f'{params_line[:-2]}\n')
+        best_file.write(100*'-'+'\n')
+
+        # Loop through production wells
+        for i in range(num_prod):
+            well_name = f'PRO-{i+1}'
+            loc_i, loc_j = locs_prod[i][0], locs_prod[i][1]
+            k1, k2 = perfs_prod[i][0], perfs_prod[i][1]
+
+            # Write each production well line parameters
+            best_file.write(
+                f'> {well_name} -->  i = {loc_i}, j = {loc_j}, perf_start = {k1}, perf_end = {k2}\n')
+            
+        # Loop through injection wells
+        for i in range(num_inj):
+            well_name = f'INJ-{i+1}'
+            loc_i, loc_j = locs_inj[i][0], locs_inj[i][1]
+            k1, k2 = perfs_inj[i][0], perfs_inj[i][1]
+
+            # Write each injection well line parameters
+            best_file.write(
+                f'> {well_name} -->  i = {loc_i}, j = {loc_j}, perf_start = {k1}, perf_end = {k2}\n')
+            
+        # Write another seperator again
+        best_file.write(100*'-'+'\n')
+
+    # Write physical constraints messages to best_result file
+    physical_penalty(
+                    model_name=model_name,
+                    locs_inj=locs_inj,
+                    perfs_inj=perfs_inj,
+                    locs_prod=locs_prod,
+                    perfs_prod=perfs_prod,
+                    gridsize=gridsize,
+                    final_solution=True
+            )
+
+    # Write simulation files for the final simulation run
+    write_solution(
+                locs_inj=locs_inj,
+                perfs_inj=perfs_inj,
+                locs_prod=locs_prod,
+                perfs_prod=perfs_prod,
+                keywords=keywords,
+                is_green=True, is_include=True, is_copy=False
+            )
+        
+    # Run simulation again with the best solution
+    with open(f'{log_dir}/best_result.txt', 'a') as best_file:
+
+        working_dir = f'{abs_to_src}/model'
+        subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=best_file, cwd=working_dir)
+
+    # Copy simulatiom files to log directory
+    write_solution(
+            locs_inj=locs_inj,
+            perfs_inj=perfs_inj,
+            locs_prod=locs_prod,
+            perfs_prod=perfs_prod,
+            keywords=keywords,
+            is_green=True, is_include=True, is_copy=True
+        )

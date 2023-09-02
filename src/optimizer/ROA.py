@@ -47,6 +47,9 @@ class BaseROA(Optimizer):
         self.soil_adsorption = self.validator.check_float('soil_adsorption', soil_adsorption, [0, 100])
         self.r_min = self.validator.check_float('r_min', r_min, [0, self.init_radius])
 
+        # Set the name of parameters
+        self.set_parameters(["epoch", "pop_size", "init_radius", "joint_size", "rain_speed", 'soil_adsorption', 'r_min'])
+
         # Determine to sort the problem or not in each epoch
         # if True, the problem always sorted with fitness value increase
         # if False, the problem is not sorted
@@ -261,6 +264,9 @@ class OriginalROA(Optimizer):
         self.rain_speed = self.validator.check_float('rain_speed', rain_speed, [0, 100])
         self.soil_adsorption = self.validator.check_float(
             'soil_adsorption', soil_adsorption, [0, self.pop_size])
+        
+        # Set the name of parameters
+        self.set_parameters(["epoch", "pop_size", "init_radius", "joint_size", "rain_speed", 'soil_adsorption'])
 
         # Determine to sort the problem or not in each epoch
         # if True, the problem always sorted with fitness value increase

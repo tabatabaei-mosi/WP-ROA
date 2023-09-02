@@ -96,7 +96,10 @@ def decode_solution(
         perfs_prod.append(param_prod[start + slice_loc: start + slice_perf])
         start += n_params
 
+    # Convert locs_inj and perfs_inj lists to numpy arrays with integer data type
     locs_inj, perfs_inj = np.array(locs_inj, dtype=int), np.array(perfs_inj, dtype=int)
+
+    # Convert locs_prod and perfs_prod lists to numpy arrays with integer data type
     locs_prod, perfs_prod = np.array(locs_prod, dtype=int), np.array(perfs_prod, dtype=int)
 
     return locs_inj, perfs_inj, locs_prod, perfs_prod
@@ -106,7 +109,7 @@ def write_solution(
     locs_inj, perfs_inj,
     locs_prod, perfs_prod, 
     keywords, 
-    is_green=True, is_include=True
+    is_green=True, is_include=True, is_copy=False
 ):
     """
     This function will write get the raw solution from optimizer and then split, decode and finnally write down different part
@@ -225,10 +228,18 @@ def write_solution(
         # End of the COMPDAT section
         file.write('/')
 
+    if is_copy:
+        write_path = f'{abs_to_src}/log_dir/INCLUDE'
+    
+    else:
+        write_path = f'{abs_to_src}/model/INCLUDE'
+    
+    path_check(write_path)
+
     for keyword in keywords:
         if is_include:
             file_name = keyword.lower()
-            file_path = f'{abs_to_src}/model/INCLUDE/{file_name}.inc'
+            file_path = f'{write_path}/{file_name}.inc'
         # TODO: write else and find keyword in PUNQS3 DATA
 
         if keyword == 'WELSPECS':
@@ -353,10 +364,8 @@ def run_simulator():
         None
     """
     # Path to directory where include .bat and .DATA files
-    # ... Create the directory since if doesn't exist
     working_dir = f'{abs_to_src}/model'
-    path_check(working_dir)
 
     # open a file to log the simulator report
-    with open(f'{abs_to_src}/model/bat_results.txt', 'a') as batch_outputs:
+    with open(f'{abs_to_src}/log_dir/bat_results.txt', 'a') as batch_outputs:
         subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)

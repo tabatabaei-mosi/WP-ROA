@@ -18,7 +18,7 @@ def obj_func(solution):
 
     # Decode solution
     locs_inj, perfs_inj, locs_prod, perfs_prod = decode_solution(
-                                                        solution=solution.astype(int),
+                                                        solution=solution,
                                                         num_inj=num_inj,
                                                         num_prod=num_prod,
                                                         n_params=n_params
