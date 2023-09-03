@@ -1,4 +1,5 @@
 import subprocess
+import functools
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -369,3 +370,26 @@ def run_simulator():
     # open a file to log the simulator report
     with open(f'{abs_to_src}/log_dir/bat_results.txt', 'a') as batch_outputs:
         subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)
+
+
+def count_calls(obj_func):
+    """
+    A decorator that counts the number of function evaluation
+
+    Args:
+        obj_func (function): Objective function
+
+    Returns:
+        callable: The decorated function.
+
+    Attributes:
+        call_count (int): The number of times the decorated function has been called.
+    """
+    @functools.wraps(obj_func)
+    def wrapper(*args, **kwargs):
+        wrapper.call_count += 1
+        result = obj_func(*args, **kwargs)
+        return result
+    
+    wrapper.call_count = 0
+    return wrapper

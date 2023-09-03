@@ -1,13 +1,16 @@
-import subprocess
 import shutil
-from pathlib import Path
+import subprocess
 from datetime import datetime
+from pathlib import Path
 
-from utils import path_check, write_solution, decode_solution
+import pandas as pd
+
 from constraints import physical_penalty
+from utils import decode_solution, path_check, write_solution
 
 # Path of root directory (absolute to src)
 abs_to_src = Path(__file__).resolve().parent
+
 
 def bat_summary():
     """
@@ -24,7 +27,7 @@ def bat_summary():
     keywords = ['Errors', 'Warnings', 'Problems']
 
     # Define the directory for log
-    # ... Create the directory if it doesn't exist
+    # --- Create the directory if it doesn't exist
     log_dir = f'{abs_to_src}/log_dir'
     path_check(log_dir)
 
@@ -71,6 +74,31 @@ def bat_summary():
             if keyword == 'Problems':
                 bat_sum.write(f'Total number of simulation calls : {run_count}\n')
 
+
+@staticmethod
+def time_report(time):
+    """
+    Convert the given time to a formatted string with appropriate units for reporting.
+
+    Args:
+        time (float): Time value in seconds.
+
+    Returns:
+        str: A formatted string representing the time in the format "X h Y min Z sec".
+    """
+    hours = int(time // 3600)
+    minutes = int((time % 3600) // 60)
+    seconds = round(time % 60, 3)
+
+    time_string = ""
+    if hours > 0:
+        time_string += f"{hours} h "
+    if minutes > 0:
+        time_string += f"{minutes} min "
+    if seconds > 0 or not time_string:
+        time_string += f"{seconds} sec"
+
+    return time_string
 
 def write_best(model_name,
                optimizer,
@@ -131,22 +159,34 @@ def write_best(model_name,
         best_file.write(100*'-'+'\n')
 
         # Write the best fitness value in terms of NPV (Net Present Value).
-        best_file.write(f'Best Objective value -->  NPV = {best_fitness/10**9} Bilion $\n\n')
+        best_file.write(f'Best Objective value -->  $ NPV = {round(best_fitness/10**9, 3)} B\n\n')
 
         # Get Name and Hyperparameters of optimizer
         optimizer_name = optimizer.get_name()
         params = optimizer.get_parameters()
         params_line = ''
 
+        best_file.write(100*'-'+'\n')
         # Write the name of optimizer and its hyperparameters 
         best_file.write(f'The {optimizer_name} parameters : \n')
         for name, value in params.items():
             params_line += f'{name} = {value}, '
 
-        # Write hyperparameters line on another seperator
+        # Calculate the runtime of optimization process
+        runtime = sum(optimizer.history.list_epoch_time)
+        time_string = time_report(runtime)
+
+        # Get number of function evaluation 
+        nfe = optimizer.problem.fit_func.call_count
+
+        # Write hyperparameters line, runtime, nfe and another seperator
         best_file.write(f'{params_line[:-2]}\n')
+        best_file.write(f'runtime = {time_string}\n')
+        best_file.write(f'nfe = {nfe}\n')
         best_file.write(100*'-'+'\n')
 
+        # Write header for well parameters
+        best_file.write('Parameters of each well : \n')
         # Loop through production wells
         for i in range(num_prod):
             well_name = f'PRO-{i+1}'
@@ -206,7 +246,7 @@ def write_best(model_name,
             keywords=keywords,
             is_green=True, is_include=True, is_copy=True
         )
-
+    
 
 def save_charts(
         optimizer, 
@@ -255,6 +295,33 @@ def save_charts(
             pass
             
         # TODO: Handle any exceptions that may occur while calling the method.
+
+
+def save_gbf(optimizer):
+    """
+    Save the global best fitness values and corresponding epochs to an Excel file.
+
+    This function takes an optimizer object as input, extracts the global best fitness
+    values and their corresponding epochs, and saves them to an Excel file.
+
+    Args:
+        optimizer (mealpy.Optimizer): An instance of the mealpy optimizer class.
+
+    Returns:
+        None
+    """
+    # Extract the global best fitness values and their corresponding epochs
+    gbf_list = optimizer.history.list_global_best_fit
+    epoch_list = [i for i in range(1, optimizer.epoch + 1)]
+
+    # Create a DataFrame to store the data
+    df = pd.DataFrame({'Epoch': epoch_list, 'GBF': gbf_list})
+
+    # Define the directory where the Excel file will be saved
+    log_dir = f'{abs_to_src}/log_dir'
+
+    # Save the DataFrame to an Excel file (gbf.xlsx) without including the index
+    df.to_excel(f'{log_dir}/GBF/gbf.xlsx', index=False)
 
 
 def copy_to_history(optimizer):

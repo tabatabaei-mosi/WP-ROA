@@ -1,10 +1,14 @@
-from utils import decode_solution, write_solution, npv_calculator, run_simulator
+from utils import (decode_solution, write_solution, npv_calculator,
+                    run_simulator, count_calls, path_check)
 from constraints import logical_constraint, physical_penalty
+from log import bat_summary, write_best, save_gbf, save_charts, copy_to_history
 from npv_constants import constants
 from optimizer import ROA
 from loguru import logger
+from pathlib import Path
 
 
+@count_calls
 def obj_func(solution):
     """
     The objective function for optimizer. The fitness value objtained by this function may minimuze or maximuze.
@@ -89,7 +93,7 @@ def obj_func(solution):
 num_inj = 0
 num_prod = 6
 n_params = 4
-epoch = 10
+epoch = 30
 pop_size = 20
 
 # specify working keywords
@@ -111,6 +115,13 @@ penalty_coeff = 0.5
 # Minimum distance to null blocks
 well_space, null_space = 2, 2
 
+# Path of root directory (absolute to src)
+abs_to_src = Path(__file__).resolve().parent
+
+# Define a directory to save the log files
+log_dir = f'{abs_to_src}/log_dir'
+path_check(log_dir)
+
 
 # PUNQS3 DATA
 problem_dict = {
@@ -118,6 +129,8 @@ problem_dict = {
     "lb": [1, 1, 1, 1] * num_wells,         # lower boundary to [loc_i, loc_j, perf_k1, perf_k2]
     'ub': [19, 28, 5, 5] * num_wells,       # upper boundary to [loc_i, loc_j, perf_k1, perf_k2]
     'minmax': 'max', 
+    'log_to': 'file',
+    'log_file': f'{log_dir}/ROAlog.log'
 }
 
 
@@ -125,3 +138,36 @@ roa = ROA.BaseROA(epoch=epoch, pop_size=pop_size)
 best_position, best_fitness = roa.solve(problem_dict)
 
 logger.info(f"Solution: {best_position}, Fitness: {best_fitness}")
+
+# Summarize information from simulation log file and generate a summary
+bat_summary()
+
+# Write optimization results and perform simulation with the best solution.
+write_best(
+        model_name=model_name,
+        optimizer=roa,
+        best_solution=best_position,
+        best_fitness=best_fitness,
+        num_prod=num_prod,
+        num_inj=num_inj,
+        n_params=4,
+        gridsize=gridsize,
+        keywords=keywords
+    )
+
+# Saving the global best fitness values of each epoch to excel file
+save_gbf(optimizer=roa)
+
+# Defining a list of charts for saving them
+# ... based on optimizer.history, ex.: optimizer.history.save_global_best_fitness_chart -
+# - target = 'global_best_fintess' or optimizer.history.save_{target}_chart
+chart_targets = ['global_best_fitness',
+                    'exploration_exploitation',
+            ]
+# Saving the desired charts.
+save_charts(optimizer=roa,
+            targets=chart_targets
+        )
+
+# Copy the log files from log_dir to run_history
+copy_to_history(optimizer=roa)
