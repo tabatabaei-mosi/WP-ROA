@@ -1,5 +1,7 @@
 import subprocess
+import shutil
 from pathlib import Path
+from datetime import datetime
 
 from utils import path_check, write_solution, decode_solution
 from constraints import physical_penalty
@@ -81,6 +83,15 @@ def write_best(model_name,
                keywords=['WELSPECS', 'COMPDAT']
     ):
     """
+    Write optimization results and perform simulation with the best solution.
+
+    This function takes the best solution obtained from an optimization process and performs
+    several tasks related to result reporting and reservoir simulation.
+
+    1- The function decodes the best solution to obtain well locations and perforations.
+    2- Information about the optimization process, well parameters, and constraints is recorded.
+    3- The function runs a simulation with the best solution and logs the output.
+    4- It also copies simulation files to the log directory for reference.
 
     Args:
         model_name (str): Name of the reservoir simulation model
@@ -195,3 +206,97 @@ def write_best(model_name,
             keywords=keywords,
             is_green=True, is_include=True, is_copy=True
         )
+
+
+def save_charts(
+        optimizer, 
+        targets=['global_best_fitness', 'exploration_exploitation']
+    ):
+    """
+    Save charts related to the optimization process.
+
+    This function saves charts based on specified targets using the optimizer's history.
+
+    Args:
+        optimizer: The optimizer object for which to save charts.
+        targets (list, optional): A list of targets to save charts for, each corresponding to a specific chart type.
+            Defaults to ['global_best_fitness', 'exploration_exploitation'].
+
+    Note:
+        - The function dynamically generates method names based on the targets to call the corresponding
+          chart-saving methods from the optimizer's history.
+        - Charts are saved in the 'src/log_dir/Charts' directory with filenames corresponding to the targets.
+
+    Returns:
+        None
+    """
+
+    # Define the directory where charts will be saved
+    chart_path = f'src/log_dir/Charts'
+    path_check(chart_path)
+
+    # Iterate through each target for chart saving
+    for target in targets:
+        
+        # Generate the name of the method to call for saving chart based on target
+        # ex. : optimizer.history.save_global_best_fitness_chart, target = 'global_best_fitness'
+        method = f'save_{target}_chart'
+
+        # Use getattr to dynamically access the method from the optimizer's history
+        method_to_call = getattr(optimizer.history, method)
+
+        try:
+            # Check if the method is callable (i.e., exists and can be called)
+            if callable(method_to_call):
+                # Call the method with a specified filename to save the chart.
+                method_to_call(filename=f'{chart_path}/{target}')
+
+        except:
+            pass
+            
+        # TODO: Handle any exceptions that may occur while calling the method.
+
+
+def copy_to_history(optimizer):
+    """
+    Copy the log files of an optimization run process to the run history directory.
+    
+    Args:
+        optimizer (mealpy.Optimizer): An instance of the mealpy optimizer class.
+        
+    Returns:
+        None
+        
+    Notes:
+        - The source log files are expected to be located in '{abs_to_src}/log_dir'.
+        - The destination directory will be '{abs_to_src}/run_history/' followed by
+          the optimizer's name and configuration parameters.
+        - If the destination directory already exists, the copying process will not be
+          performed.
+    """
+    
+    # Define the source path where log files are located
+    source_path = f'{abs_to_src}/log_dir'
+    # Create the source path if not exists.
+    path_check(source_path)
+    
+    # Get the optimizers hyperparameters
+    params = optimizer.get_parameters()
+
+    # Create a destination name for the copied directory based on optimizers name and parameters
+    dest_name = f'{optimizer.get_name()}'
+
+    for name, value in params.items():
+        dest_name += f', {name}={value}'
+
+    # Get the current date and time in the specified format
+    time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Append the current time to the destination name
+    dest_name += f', time={time_now}'
+
+    # Define the destination path where the log files will be copied.
+    dest_path = f'{abs_to_src}/run_history/{dest_name}'
+
+    # Copy the entire source directory to the destination.
+    shutil.copytree(source_path, dest_path)
