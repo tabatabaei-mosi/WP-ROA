@@ -56,7 +56,7 @@ def logical_constraint(
 
 def read_grdecl(
         model_name='PUNQS3', 
-        gridsize=[19, 28, 5], 
+        gridsize=(19, 28, 5), 
         target='ACTCELL'
     ):
     """
@@ -133,7 +133,7 @@ def physical_penalty(
         model_name,
         locs_inj, perfs_inj,
         locs_prod, perfs_prod, 
-        gridsize=[19, 28, 5], 
+        gridsize=(19, 28, 5), 
         targets=['null_block', 'min_space', 'border'],
         well_space=2,
         null_space=2,

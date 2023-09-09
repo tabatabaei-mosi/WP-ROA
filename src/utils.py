@@ -351,25 +351,7 @@ def npv_calculator(
         FOPT_year, FGPT_year, FWPT_year = 0, 0, 0
 
     # Return npv after subtracing capex from it
-    return (npv - npv_constants['capex'])
-
-
-def run_simulator():
-    """
-    Call and subprocess the .bat which will run the Eclipse for reservoir simulation
-
-    Args:
-        None
-    
-    Return:
-        None
-    """
-    # Path to directory where include .bat and .DATA files
-    working_dir = f'{abs_to_src}/model'
-
-    # open a file to log the simulator report
-    with open(f'{abs_to_src}/log_dir/bat_results.txt', 'a') as batch_outputs:
-        subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)
+    return (npv - npv_constants['capex']) / 10**9
 
 
 def count_calls(obj_func):
@@ -393,3 +375,22 @@ def count_calls(obj_func):
     
     wrapper.call_count = 0
     return wrapper
+
+
+@count_calls
+def run_simulator():
+    """
+    Call and subprocess the .bat which will run the Eclipse for reservoir simulation
+
+    Args:
+        None
+    
+    Return:
+        None
+    """
+    # Path to directory where include .bat and .DATA files
+    working_dir = f'{abs_to_src}/model'
+
+    # open a file to log the simulator report
+    with open(f'{abs_to_src}/log_dir/bat_results.txt', 'a') as batch_outputs:
+        subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)

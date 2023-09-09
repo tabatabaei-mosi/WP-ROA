@@ -1,11 +1,14 @@
-from utils import (decode_solution, write_solution, npv_calculator,
-                    run_simulator, count_calls, path_check)
+from pathlib import Path
+
+from loguru import logger
+
 from constraints import logical_constraint, physical_penalty
-from log import bat_summary, write_best, save_gbf, save_charts, copy_to_history
+from log import (bat_summary, copy_to_history, save_charts, save_gbf,
+                 simulation_info, track_npv, track_solution, write_best)
 from npv_constants import constants
 from optimizer import ROA
-from loguru import logger
-from pathlib import Path
+from utils import (count_calls, decode_solution, npv_calculator, path_check,
+                   run_simulator, write_solution)
 
 
 @count_calls
@@ -37,7 +40,7 @@ def obj_func(solution):
                 )
     
     # Check for physical constraints
-    physical_flag, num_faults =  physical_penalty(
+    null_drilling, num_faults =  physical_penalty(
                                             model_name=model_name,
                                             locs_inj=locs_inj,
                                             perfs_inj=perfs_inj,
@@ -49,8 +52,8 @@ def obj_func(solution):
                                             null_space=null_space
                                         )
     
-    # If a logical constraint violated -> NPV = 0
-    if logical_flag or physical_flag:
+    # If a logical constraint violated or drilling a well in null blocks -> NPV = 0
+    if logical_flag or null_drilling:
         return 0
     
     else:
@@ -67,8 +70,19 @@ def obj_func(solution):
         # run simulator
         run_simulator()
 
+        # Get nfe and sim_call value from counter decorator
+        nfe = obj_func.call_count
+        sim_call = run_simulator.call_count
+
+        # Track each solution and append it to a file
+        track_solution(
+                    solution=solution, 
+                    nfe=nfe, sim_call=sim_call, 
+                    n_params=n_params
+                )
+
         # calculate NPV by reading .RSM file (resuled from simulation)
-        NPV = npv_calculator(
+        npv = npv_calculator(
                 model_name=model_name, 
                 npv_constants=npv_constants
             )
@@ -83,9 +97,15 @@ def obj_func(solution):
         
             # Reduced NPV by penalty coeff.
             else:       
-                NPV -= (punishment_frac * NPV)
+                npv -= (punishment_frac * npv)
         
-        return NPV
+        # Track npv value and appent to a file
+        track_npv(
+                sim_call=sim_call, 
+                npv=npv
+            )
+        
+        return npv
 
 
 
@@ -93,7 +113,7 @@ def obj_func(solution):
 num_inj = 0
 num_prod = 6
 n_params = 4
-epoch = 30
+epoch = 10
 pop_size = 20
 
 # specify working keywords
@@ -103,13 +123,13 @@ keywords = ['WELSPECS', 'COMPDAT']
 model_name = 'PUNQS3'
 
 # GRID_SIZE -- PUNQS3
-gridsize = [19, 28, 5]
+gridsize = (19, 28, 5)
 
 num_wells = num_inj + num_prod
 npv_constants = constants
 
 # penalty coefficient
-penalty_coeff = 0.5
+penalty_coeff = 0.2
 
 # Minumm well spacing
 # Minimum distance to null blocks
@@ -125,6 +145,7 @@ path_check(log_dir)
 
 # PUNQS3 DATA
 problem_dict = {
+    'name': 'Well Placement',
     'fit_func': obj_func, 
     "lb": [1, 1, 1, 1] * num_wells,         # lower boundary to [loc_i, loc_j, perf_k1, perf_k2]
     'ub': [19, 28, 5, 5] * num_wells,       # upper boundary to [loc_i, loc_j, perf_k1, perf_k2]
@@ -133,11 +154,10 @@ problem_dict = {
     'log_file': f'{log_dir}/ROAlog.log'
 }
 
+optimizer = ROA.BaseROA(epoch=epoch, pop_size=pop_size)
+best_position, best_fitness = optimizer.solve(problem=problem_dict)
 
-roa = ROA.BaseROA(epoch=epoch, pop_size=pop_size)
-best_position, best_fitness = roa.solve(problem_dict)
-
-logger.info(f"Solution: {best_position}, Fitness: {best_fitness}")
+logger.info(f"Solution: {best_position.astype(int)}, Fitness: {best_fitness}")
 
 # Summarize information from simulation log file and generate a summary
 bat_summary()
@@ -145,9 +165,10 @@ bat_summary()
 # Write optimization results and perform simulation with the best solution.
 write_best(
         model_name=model_name,
-        optimizer=roa,
+        optimizer=optimizer,
         best_solution=best_position,
         best_fitness=best_fitness,
+        sim_call=run_simulator.call_count,
         num_prod=num_prod,
         num_inj=num_inj,
         n_params=4,
@@ -156,7 +177,7 @@ write_best(
     )
 
 # Saving the global best fitness values of each epoch to excel file
-save_gbf(optimizer=roa)
+save_gbf(optimizer=optimizer)
 
 # Defining a list of charts for saving them
 # ... based on optimizer.history, ex.: optimizer.history.save_global_best_fitness_chart -
@@ -165,9 +186,12 @@ chart_targets = ['global_best_fitness',
                     'exploration_exploitation',
             ]
 # Saving the desired charts.
-save_charts(optimizer=roa,
+save_charts(optimizer=optimizer,
             targets=chart_targets
         )
 
+# Write the simulation run information with the best solution
+simulation_info()
+
 # Copy the log files from log_dir to run_history
-copy_to_history(optimizer=roa)
+copy_to_history(optimizer=optimizer)

@@ -104,11 +104,12 @@ def write_best(model_name,
                optimizer,
                best_solution, 
                best_fitness,
+               sim_call,
                num_inj=0, 
                num_prod=6, 
                n_params=4,
                gridsize=(19, 28, 5),
-               keywords=['WELSPECS', 'COMPDAT']
+               keywords=['WELSPECS', 'COMPDAT'],
     ):
     """
     Write optimization results and perform simulation with the best solution.
@@ -159,7 +160,7 @@ def write_best(model_name,
         best_file.write(100*'-'+'\n')
 
         # Write the best fitness value in terms of NPV (Net Present Value).
-        best_file.write(f'Best Objective value -->  $ NPV = {round(best_fitness/10**9, 3)} B\n\n')
+        best_file.write(f'Best Objective value -->  $ NPV = {best_fitness:.3f} B\n\n')
 
         # Get Name and Hyperparameters of optimizer
         optimizer_name = optimizer.get_name()
@@ -170,7 +171,13 @@ def write_best(model_name,
         # Write the name of optimizer and its hyperparameters 
         best_file.write(f'The {optimizer_name} parameters : \n')
         for name, value in params.items():
+            if name == 'pop_size':
+                params_line += f'{name} = {value}'
+                params_line += '\n'
+                continue
+
             params_line += f'{name} = {value}, '
+
 
         # Calculate the runtime of optimization process
         runtime = sum(optimizer.history.list_epoch_time)
@@ -182,7 +189,7 @@ def write_best(model_name,
         # Write hyperparameters line, runtime, nfe and another seperator
         best_file.write(f'{params_line[:-2]}\n')
         best_file.write(f'runtime = {time_string}\n')
-        best_file.write(f'nfe = {nfe}\n')
+        best_file.write(f'nfe = {nfe},  Number simulation calls = {sim_call}\n')
         best_file.write(100*'-'+'\n')
 
         # Write header for well parameters
@@ -289,7 +296,7 @@ def save_charts(
             # Check if the method is callable (i.e., exists and can be called)
             if callable(method_to_call):
                 # Call the method with a specified filename to save the chart.
-                method_to_call(filename=f'{chart_path}/{target}')
+                method_to_call(filename=f'{chart_path}/{target}', verbose=False)
 
         except:
             pass
@@ -312,17 +319,79 @@ def save_gbf(optimizer):
     """
     # Extract the global best fitness values and their corresponding epochs
     gbf_list = optimizer.history.list_global_best_fit
-    epoch_list = [i for i in range(1, optimizer.epoch + 1)]
+    epoch_list = [i for i in range(1, len(gbf_list) + 1)]
 
     # Create a DataFrame to store the data
     df = pd.DataFrame({'Epoch': epoch_list, 'GBF': gbf_list})
 
     # Define the directory where the Excel file will be saved
-    log_dir = f'{abs_to_src}/log_dir'
+    gbf_dir = f'{abs_to_src}/log_dir/GBF'
+    path_check(gbf_dir)
 
     # Save the DataFrame to an Excel file (gbf.xlsx) without including the index
-    df.to_excel(f'{log_dir}/GBF/gbf.xlsx', index=False)
+    df.to_excel(f'{gbf_dir}/gbf.xlsx', index=False)
 
+
+def simulation_info():
+    """
+    Extract and save simulation information from log files.
+
+    This function reads a log file, searches for specific keywords (ERROR, WARNING, PROBLEM),
+    and extracts related messages. It then saves this information to a new file.
+
+    Returns:
+        None
+    """
+    # Define the directory where log files are located
+    log_dir = f'{abs_to_src}/log_dir'
+
+    # List of keywords to search for in the log file
+    keywords = ['ERROR', 'WARNING', 'PROBLEM']
+
+    # Dictionary to store messages corresponding to each keyword
+    messages = {
+        'ERROR': [],
+        'WARNING': [],
+        'PROBLEM': []
+    }
+
+    # Open the log file for reading
+    with open(f'{log_dir}/best_result.txt', 'r') as best_file:
+        lines = best_file.readlines()
+
+        # Loop through each keyword
+        for keyword in keywords:
+            for idx, line in enumerate(lines):
+                message = ''
+                # Check if the keyword is found in the line
+                if f'--{keyword}' in line:
+                    # Extract related messages until the next '@' symbol
+                    for i in range(idx, idx+100):
+                        if '@' in lines[i]:
+                            message += f'{lines[i]}'
+                        else:
+                            break
+                    
+                    # Append the message to the corresponding keyword's list
+                    messages[keyword].append(f'{message}\n')
+        
+        # Open a new file for saving simulation information
+        with open(f'{log_dir}/simulation_info.txt', 'w+') as sim_info:
+            # Write a header and a seperator
+            sim_info.write('The final simulation run info\n')
+            sim_info.write(70*'-' + '\n')
+            # Loop through keywords
+            for keyword in keywords:
+                # Write the count of messages for each keyword
+                sim_info.write(f'{keyword} count : {len(messages[keyword])}\n\n')
+
+                # Write the messages for the keyword
+                for message in messages[keyword]:
+                    sim_info.write(message)
+
+                # write a seperator line
+                sim_info.write(70*'-' + '\n')
+                
 
 def copy_to_history(optimizer):
     """
@@ -367,3 +436,71 @@ def copy_to_history(optimizer):
 
     # Copy the entire source directory to the destination.
     shutil.copytree(source_path, dest_path)
+
+
+def track_solution(solution, nfe, sim_call, n_params=4):
+    """
+    Track the solution and log it to a file.
+
+    This function takes a solution, the number of objective function calls, the number of
+    simulation calls, and an optional number of decision variable. It logs the solution
+    and relevant information to a text file.
+
+    Args:
+        solution (np.array): The solution to be tracked.
+        nfe (int): Number of objective function calls.
+        sim_call (int): Number of simulation calls.
+        n_params (int, optional): Number of parameters per well. Defaults to 4.
+
+    Returns:
+        None
+    """
+
+    # Define the directory where log files are located
+    log_dir = f'{abs_to_src}/log_dir'
+
+    # Calculate the new shape for reshaping the solution
+    new_shape = (int(len(solution)/n_params), n_params)
+
+    # Reshape the solution as per the new shape and convert to integers
+    reshaped_solution = solution.astype(int).reshape(new_shape)
+
+    # Open the log file for appending
+    with open(f'{log_dir}/track_solutions.txt', 'a') as track:
+        # Write a header with objective function call and simulation call information
+        track.write(f'Obj_func call {nfe} (simulation call : {sim_call}): \n')
+
+        # Write a header for the well parameters
+        track.write(f'  wellname  loc_i   loc_j  perf_k1  perf_k2\n')
+
+        # Iterate over the reshaped solution and log each well's parameters
+        for idx, well in enumerate(reshaped_solution):
+            track.write(f'  Well {idx+1} :   ')
+            row_str = '       '.join(map(str, well))
+            track.write(row_str + '\n')
+
+        # Write a separator line to distinguish between different logs
+        track.write(50 * '-' + '\n')
+
+
+def track_npv(sim_call, npv):
+    """
+    Track the Net Present Value (NPV) and log it to a file.
+
+    This function takes a solution, the number of simulation calls, and the NPV value.
+    It logs the NPV value to a text file along with relevant information.
+
+    Args:
+        sim_call (int): Number of simulation calls.
+        npv (float): The Net Present Value (NPV) in billions of dollars.
+
+    Returns:
+        None
+    """
+    # Define the directory where log files are located
+    log_dir = f'{abs_to_src}/log_dir'
+
+    # Open the log file for appending
+    with open(f'{log_dir}/track_npv.txt', 'a') as track:
+        # Write a line containing the simulation call number and NPV value
+        track.write(f'-Simulation call {sim_call} : NPV($ B) = {npv:.3f}\n')
