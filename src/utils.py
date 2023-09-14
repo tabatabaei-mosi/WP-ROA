@@ -403,8 +403,6 @@ def tuning(
     params_grid,
     mode='single',
     n_trials=2,
-    n_jobs=1,
-    n_workers=2
 ):
     """
     Perform hyperparameter tuning using a specified optimizer.
@@ -415,8 +413,6 @@ def tuning(
     - params_grid (dict): A dictionary containing the hyperparameter grid to search.
     - mode (str, optional): The tuning mode, either 'single', 'swarm', 'thread', 'process'. Default is 'single'.
     - n_trials (int, optional): The Number of trials on the problem. Default is 2.
-    - n_jobs (int, optional): The number of parallel jobs to run during tuning. Default is 1.
-    - n_workers (int, optional): The number of workers to use for parallel execution. Default is 2.
 
     Returns:
     None
@@ -433,9 +429,7 @@ def tuning(
             problem=problem_dict,
             n_trials=n_trials,
             mode=mode,
-            n_jobs=n_jobs,
-            n_workers=n_workers
     )
     
     # Export the tuning results to a CSV file in 'src/tuning' directory.
-    tuner.export_results('src/tuning', save_as='csv')
+    tuner.export_results(save_path=f'{abs_to_src}/tuning', file_name='tuning.csv')

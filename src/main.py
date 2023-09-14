@@ -169,11 +169,17 @@ if is_tuning:
         'soil_adsorption': [0.8, 1.0, 1.2]
     }
 
+    # mode and number of trials on the problem
+    mode = 'single'
+    n_trials = 3
+
     # Perform hyperparameter tuning using the 'tuning' function
     tuning(
         optimizer=optimizer,
         problem_dict=problem_dict,
-        params_grid=params_roa_grid
+        params_grid=params_roa_grid,
+        mode=mode,
+        n_trials=n_trials
     )
 
 else:
