@@ -7,7 +7,7 @@ abs_to_src = Path(__file__).resolve().parent
 
 def logical_constraint(
     locs_inj, perfs_inj,
-    locs_prod, perfs_prod, 
+    locs_prod, perfs_prod,
 ):
     """
     Check the logical constraints of well locations and perforations.
@@ -56,7 +56,7 @@ def logical_constraint(
 
 def read_grdecl(
         model_name='PUNQS3', 
-        gridsize=[19, 28, 5], 
+        gridsize=(19, 28, 5), 
         target='ACTCELL'
     ):
     """
@@ -133,10 +133,11 @@ def physical_penalty(
         model_name,
         locs_inj, perfs_inj,
         locs_prod, perfs_prod, 
-        gridsize=[19, 28, 5], 
+        gridsize=(19, 28, 5), 
         targets=['null_block', 'min_space', 'border'],
         well_space=2,
-        null_space=2
+        null_space=2,
+        final_solution=False
     ):
     """
     Calculate physical penalties based on specified criteria for a reservoir simulation model. This function will check
@@ -163,6 +164,9 @@ def physical_penalty(
     min_fault = 0
     border_fault = 0
 
+    # Define a list to store constraints messages
+    messages = []
+
     # Combine injection and production well locations and perforations
     if locs_inj:
         locs = np.concatenate([locs_inj, locs_prod])
@@ -177,6 +181,9 @@ def physical_penalty(
         for i in range(len(locs)):
             # Check if the well is at the border of the grid
             if (locs[i][0] in [1, gridsize[0]]) or (locs[i][1] in [1, gridsize[1]]):
+                # append message to messages
+                messages.append(
+                    f'!! Border: Well number {i+1} is located on the border of the reservoir\n')
                 border_fault += 1
 
     # Check for minimum well spacing constraint
@@ -202,6 +209,9 @@ def physical_penalty(
                 
                 # Check if minimum spacing constraint is violated
                 if dist_start <= well_space or dist_end <= well_space:
+                    # append message to messages
+                    messages.append(
+                        f'!! Well space : Distance between well {i+1} and well {j+1} is less than the minimum well spacing\n')
                     min_fault += 1
 
     # Check for null blocks constraint
@@ -258,6 +268,9 @@ def physical_penalty(
                             
                             # Check if null space constraint is violated
                             if dist_start <= null_space or dist_end <= null_space:
+                                # append message to messages
+                                messages.append(
+                                    f'!! Null blocks : The distance between well number {i+1} and null block ({x, y, z}) is less than the minimum allowable distance\n')
                                 flag_null = True
                                 null_fault += 1
                                 break
@@ -268,6 +281,37 @@ def physical_penalty(
         
     # Calculate total faults by summing up the individual errors
     faults = null_fault + min_fault + border_fault
+
+    # Check for final_solution: if True write in best_result.txt
+    if final_solution:
+
+        # best_result file path
+        best_log = f'{abs_to_src}/log_dir/best_result.txt'
+
+        # Open file to add constraints messages to it
+        with open(best_log, 'a') as best_file:
+
+            # Write seperator and constraints header
+            best_file.write(100*'-'+'\n')
+            best_file.write('Physical Constraints: \n\n')
+
+            # Check if any fault is equal to zero, write a No problem message
+            if border_fault == 0:
+                best_file.write('! Border: No well on border\n\n')
+
+            if min_fault == 0:
+                best_file.write('! Well space : Not problem in Well space\n\n')
+
+            if null_fault == 0:
+                best_file.write('! Null blocks : No well is near null blocks\n\n')
+
+            # Loop through messages to write each message in file
+            for message in messages:
+                best_file.write(message)
+
+            # Write a final seperator
+            best_file.write(100*'-'+'\n')
+
 
     # Return a tuple with violation status (False if no violation) and total faults
     return False, faults
