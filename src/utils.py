@@ -3,6 +3,7 @@ import functools
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from mealpy.tuner import Tuner
 
 abs_to_src = Path(__file__).resolve().parent
 
@@ -394,3 +395,41 @@ def run_simulator():
     # open a file to log the simulator report
     with open(f'{abs_to_src}/log_dir/bat_results.txt', 'a') as batch_outputs:
         subprocess.call([rf"{working_dir}/$MatEcl.bat"], stdout=batch_outputs, cwd=working_dir)
+
+
+def tuning(
+    optimizer,
+    problem_dict,
+    params_grid,
+    mode='single',
+    n_trials=2,
+):
+    """
+    Perform hyperparameter tuning using a specified optimizer.
+
+    Parameters:
+    - optimizer (mealpy.Optimizer): The instance of a mealpy.Optimizer.
+    - problem_dict (dict): A dictionary representing the optimization problem.
+    - params_grid (dict): A dictionary containing the hyperparameter grid to search.
+    - mode (str, optional): The tuning mode, either 'single', 'swarm', 'thread', 'process'. Default is 'single'.
+    - n_trials (int, optional): The Number of trials on the problem. Default is 2.
+
+    Returns:
+    None
+
+    """
+    # Create a tuner object with the specified optimizer and hyperparameter grid.
+    tuner = Tuner(
+            algorithm=optimizer,
+            param_grid=params_grid
+        )
+
+    # Execute the tuning process.
+    tuner.execute(
+            problem=problem_dict,
+            n_trials=n_trials,
+            mode=mode,
+    )
+    
+    # Export the tuning results to a CSV file in 'src/tuning' directory.
+    tuner.export_results(save_path=f'{abs_to_src}/tuning', file_name='tuning.csv')

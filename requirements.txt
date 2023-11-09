@@ -1,5 +1,4 @@
-mealpy==2.5.3
-numpy==1.23.5
+mealpy==2.5.4
 matplotlib==3.7.1
 pathlib==1.0.1
 loguru==0.7.0

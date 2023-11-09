@@ -2,13 +2,14 @@ from pathlib import Path
 
 from loguru import logger
 
+
 from constraints import logical_constraint, physical_penalty
 from log import (bat_summary, copy_to_history, save_charts, save_gbf,
                  simulation_info, track_npv, track_solution, write_best)
 from npv_constants import constants
 from optimizer import ROA
 from utils import (count_calls, decode_solution, npv_calculator, path_check,
-                   run_simulator, write_solution)
+                   run_simulator, write_solution, tuning)
 
 
 @count_calls
@@ -108,13 +109,10 @@ def obj_func(solution):
         return npv
 
 
-
 # number of injections, productions and number of optimization paramaeters
 num_inj = 0
 num_prod = 6
 n_params = 4
-epoch = 10
-pop_size = 20
 
 # specify working keywords
 keywords = ['WELSPECS', 'COMPDAT']
@@ -154,44 +152,89 @@ problem_dict = {
     'log_file': f'{log_dir}/ROAlog.log'
 }
 
-optimizer = ROA.BaseROA(epoch=epoch, pop_size=pop_size)
-best_position, best_fitness = optimizer.solve(problem=problem_dict)
+# Create an used optimizer instance
+optimizer = ROA.BaseROA()
 
-logger.info(f"Solution: {best_position.astype(int)}, Fitness: {best_fitness}")
+# Flag to determine if hyperparameter tuning should be performed
+is_tuning = True
 
-# Summarize information from simulation log file and generate a summary
-bat_summary()
+if is_tuning:
+    # Hyperparameter grid for tuning
+    params_roa_grid = {
+        'epoch': [5],
+        'pop_size': [15],
+        'init_radius': [0.8, 1.0, 1.2],
+        'joint_size': [1.0],
+        'rain_speed': [2],
+        'soil_adsorption': [0.8, 1.0, 1.2]
+    }
 
-# Write optimization results and perform simulation with the best solution.
-write_best(
-        model_name=model_name,
+    # mode and number of trials on the problem
+    mode = 'single'
+    n_trials = 3
+
+    # Perform hyperparameter tuning using the 'tuning' function
+    tuning(
         optimizer=optimizer,
-        best_solution=best_position,
-        best_fitness=best_fitness,
-        sim_call=run_simulator.call_count,
-        num_prod=num_prod,
-        num_inj=num_inj,
-        n_params=4,
-        gridsize=gridsize,
-        keywords=keywords
+        problem_dict=problem_dict,
+        params_grid=params_roa_grid,
+        mode=mode,
+        n_trials=n_trials
     )
 
-# Saving the global best fitness values of each epoch to excel file
-save_gbf(optimizer=optimizer)
+else:
+    # Set fixed parameters if not tuning
+    parameters_dict = {
+        'epoch': 10,
+        'pop_size': 20,
+        'init_radius': 1.0,
+        'joint_size': 2,
+        'rain_speed': 2,
+        'soil_adsorption': 5,
+    }
 
-# Defining a list of charts for saving them
-# ... based on optimizer.history, ex.: optimizer.history.save_global_best_fitness_chart -
-# - target = 'global_best_fintess' or optimizer.history.save_{target}_chart
-chart_targets = ['global_best_fitness',
-                    'exploration_exploitation',
-            ]
-# Saving the desired charts.
-save_charts(optimizer=optimizer,
-            targets=chart_targets
+    # Set the parameters for the optimizer
+    optimizer.set_parameters(parameters=parameters_dict)
+
+    # Solve the optimization problem with the chosen parameters
+    best_position, best_fitness = optimizer.solve(problem=problem_dict)
+
+    # Log the best solution and best fitness
+    logger.info(f"Solution: {best_position.astype(int)}, Fitness: {best_fitness}")
+
+    # Summarize information from simulation log file and generate a summary
+    bat_summary()
+
+    # Write optimization results and perform simulation with the best solution.
+    write_best(
+            model_name=model_name,
+            optimizer=optimizer,
+            best_solution=best_position,
+            best_fitness=best_fitness,
+            sim_call=run_simulator.call_count,
+            num_prod=num_prod,
+            num_inj=num_inj,
+            n_params=4,
+            gridsize=gridsize,
+            keywords=keywords
         )
 
-# Write the simulation run information with the best solution
-simulation_info()
+    # Saving the global best fitness values of each epoch to excel file
+    save_gbf(optimizer=optimizer)
 
-# Copy the log files from log_dir to run_history
-copy_to_history(optimizer=optimizer)
+    # Defining a list of charts for saving them
+    # ... based on optimizer.history, ex.: optimizer.history.save_global_best_fitness_chart -
+    # - target = 'global_best_fintess' or optimizer.history.save_{target}_chart
+    chart_targets = ['global_best_fitness',
+                        'exploration_exploitation',
+                ]
+    # Saving the desired charts.
+    save_charts(optimizer=optimizer,
+                targets=chart_targets
+            )
+
+    # Write the simulation run information with the best solution
+    simulation_info()
+
+    # Copy the log files from log_dir to run_history
+    copy_to_history(optimizer=optimizer)
