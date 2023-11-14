@@ -9,7 +9,7 @@ from log import (bat_summary, copy_to_history, save_charts, save_gbf,
 from npv_constants import constants
 from optimizer import ROA
 from utils import (count_calls, decode_solution, npv_calculator, path_check,
-                   run_simulator, write_solution, tuning)
+                   run_simulator, write_solution, tuning, amend_position)
 
 
 @count_calls
@@ -149,14 +149,15 @@ problem_dict = {
     'ub': [19, 28, 5, 5] * num_wells,       # upper boundary to [loc_i, loc_j, perf_k1, perf_k2]
     'minmax': 'max', 
     'log_to': 'file',
-    'log_file': f'{log_dir}/ROAlog.log'
+    'log_file': f'{log_dir}/ROAlog.log',
+    'amend_position': amend_position,
 }
 
 # Create an used optimizer instance
 optimizer = ROA.BaseROA()
 
 # Flag to determine if hyperparameter tuning should be performed
-is_tuning = True
+is_tuning = False
 
 if is_tuning:
     # Hyperparameter grid for tuning

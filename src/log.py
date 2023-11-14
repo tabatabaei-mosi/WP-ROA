@@ -75,7 +75,6 @@ def bat_summary():
                 bat_sum.write(f'Total number of simulation calls : {run_count}\n')
 
 
-@staticmethod
 def time_report(time):
     """
     Convert the given time to a formatted string with appropriate units for reporting.
@@ -160,7 +159,7 @@ def write_best(model_name,
         best_file.write(100*'-'+'\n')
 
         # Write the best fitness value in terms of NPV (Net Present Value).
-        best_file.write(f'Best Objective value -->  $ NPV = {best_fitness:.3f} B\n\n')
+        best_file.write(f'Best Objective value -->  $ NPV = {best_fitness:.3f} M\n\n')
 
         # Get Name and Hyperparameters of optimizer
         optimizer_name = optimizer.get_name()
@@ -503,4 +502,4 @@ def track_npv(sim_call, npv):
     # Open the log file for appending
     with open(f'{log_dir}/track_npv.txt', 'a') as track:
         # Write a line containing the simulation call number and NPV value
-        track.write(f'-Simulation call {sim_call} : NPV($ B) = {npv:.3f}\n')
+        track.write(f'-Simulation call {sim_call} : NPV($ M) = {npv:.3f}\n')
