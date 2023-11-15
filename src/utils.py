@@ -284,7 +284,7 @@ def npv_calculator(
         capex: capital expenditure ($)
 
     Args:
-        model_name (str): name of .DATA model
+        model_name (str): name of .DATA model (without .DATA)
         npv_constants (dict): The constants to use in npv formula
         SM3_to_STB (float): unit converter, to convert SM# to STB, default = 6.289810770432105
 
@@ -315,44 +315,51 @@ def npv_calculator(
             units[col] = eval(df[col][units_idx][1:])
         else:
             units[col] = 1
-    
-    # Initialize variables for calculating annual NPV
-    FOPT_year, FGPT_year, FWPT_year = 0, 0, 0
+
+    cum_FOPT, cum_FGPT, cum_FWPT = [], [], []
 
     # Initialize counter to convert until a year in NPV formula
     year_counter = 1
     npv = 0
 
     # Iterate over the data starting from the specified index
-    for i in range(start_idx, len(df['TIME'])):
+    for i in range(start_idx, len(df['TIME'])):        
         # check if reach the end of the year
-        if float(df['TIME'][i]) < year_counter * 365:
+        if float(df['TIME'][i]) >= year_counter * 365:
             # Accumulate yearly production values
-            FOPT_year += float(df['FOPT'][i]) * units['FOPT']
-            FGPT_year += float(df['FGPT'][i]) * units['FGPT']
-            FWPT_year += float(df['FWPT'][i]) * units['FWPT']
+            cum_FOPT.append(float(df['FOPT'][i]) * units['FOPT'])
+            cum_FGPT.append(float(df['FGPT'][i]) * units['FGPT'])
+            cum_FWPT.append(float(df['FWPT'][i]) * units['FWPT'])
 
-            # Continue processing if the current index is not the final index
-            # When we in the last year, never reach end of the year To bypass the if condition and calculate the NPV
-            if i != len(df['TIME']) - 1:
-                continue
+            year_counter += 1
+
+    cum_FOPT.append(float(df['FOPT'].iloc[-1]) * units['FOPT'])
+    cum_FGPT.append(float(df['FGPT'].iloc[-1]) * units['FGPT'])
+    cum_FWPT.append(float(df['FWPT'].iloc[-1]) * units['FWPT'])
+            
+    for i in range(len(cum_FOPT)):
+        # Check if it is first year
+        if i == 0:
+            FOPT_year = cum_FOPT[0]
+            FGPT_year = cum_FGPT[0]
+            FWPT_year = cum_FWPT[0]
+        
+        # Obtaining Net Production for the year.
+        else:
+            FOPT_year = max(0, cum_FOPT[i] - cum_FOPT[i-1])
+            FGPT_year = max(0, cum_FGPT[i] - cum_FGPT[i-1])
+            FWPT_year = max(0, cum_FWPT[i] - cum_FWPT[i-1])
 
         # Calculate the Net Present Value (NPV) for the current year
         npv += (
             (FOPT_year * npv_constants['ro'] * SM3_to_STB) + 
             (FGPT_year * npv_constants['rgp'] * SM3_to_STB) - 
             (FWPT_year * npv_constants['rwp'] * SM3_to_STB) - 
-            npv_constants['opex']
-        )/((1 + npv_constants['d'])**(year_counter))
-
-        # Move to the next year by incrementing the counter
-        year_counter += 1
-
-        # Reset the accumulated production values for the next year
-        FOPT_year, FGPT_year, FWPT_year = 0, 0, 0
+            npv_constants['opex']*FOPT_year*SM3_to_STB
+        )/((1 + npv_constants['d'])**(i+1))
 
     # Return npv after subtracing capex from it
-    return (npv - npv_constants['capex']) / 10**9
+    return (npv - npv_constants['capex']) / 10**6
 
 
 def count_calls(obj_func):
@@ -407,7 +414,7 @@ def tuning(
     """
     Perform hyperparameter tuning using a specified optimizer.
 
-    Parameters:
+    Args:
     - optimizer (mealpy.Optimizer): The instance of a mealpy.Optimizer.
     - problem_dict (dict): A dictionary representing the optimization problem.
     - params_grid (dict): A dictionary containing the hyperparameter grid to search.
@@ -433,3 +440,7 @@ def tuning(
     
     # Export the tuning results to a CSV file in 'src/tuning' directory.
     tuner.export_results(save_path=f'{abs_to_src}/tuning', file_name='tuning.csv')
+
+
+def amend_position(position, lb, ub):
+    return np.clip(position, lb, ub)

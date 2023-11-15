@@ -11,7 +11,7 @@
     - t: time (annular)
     - $Q_o$: Total Oil Field Flow Rate (production)
     - $Q_w$: Totla Water Field Flow Rate (production)
-    - $Q_g$: TOtal Gas Field Flow Rate (production)
+    - $Q_g$: Total Gas Field Flow Rate (production)
 
 
     constants to define (dict):
@@ -24,10 +24,10 @@
 
 """
 constants = {
-    'ro': 100,
-    'rgp': 0.4,
+    'ro': 80,
+    'rgp': 0.03,
     'rwp': 5,
     'd': 0.1,
-    'opex': 5000000,
+    'opex': 5,
     'capex': 70000000,
 }
